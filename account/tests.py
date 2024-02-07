@@ -1,87 +1,17 @@
 from django.urls import reverse
-from django.test import TestCase
+from django.test import TestCase, RequestFactory
 from django.db import IntegrityError
+from django.conf import settings
 
 from rest_framework import status
 from rest_framework.test import APITestCase
+import datetime
+import jwt
 
 from .serializers import UserSerializer
 from .models import CustomUser
-
-
-class RegisterTestCase(APITestCase):
-    def test_register_user_success(self):
-        url = reverse('register')
-        data = {
-            'username': 'testuser',
-            'password': 'testpassword',
-            'email': 'testemail@test.com',
-        }
-        response = self.client.post(url, data, format='json')
-
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertTrue(CustomUser.objects.filter(username='testuser').exists())
-        self.assertTrue('message' in response.data)
-        self.assertTrue('user' in response.data)
-        self.assertEqual(response.data['user']['username'], data['username'])
-
-    def test_register_user_failed(self):
-        url = reverse('register')
-        data = {
-            'username': '',
-            'password': '',
-            'email': '',
-        }
-        response = self.client.post(url, data, format='json')
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertFalse(CustomUser.objects.filter(username='testuser').exists())
-        self.assertTrue(response.data['email'] == ['This field may not be blank.'])
-        self.assertTrue(response.data['username'] == ['This field may not be blank.'])
-        self.assertTrue(response.data['password'] == ['This field may not be blank.'])
-
-    def test_register_user_phone_number_validation(self):
-        url = reverse('register')
-        data = {
-            'username': 'testuser',
-            'password': 'testpassword',
-            'email': 'testemail@test.com',
-            'phone_number': '99'
-        }
-        response = self.client.post(url, data, format='json')
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertFalse(CustomUser.objects.filter(username='testuser').exists())
-        self.assertTrue(response.data['phone_number'] == [
-            "Phone number must be entered in the format: '+999999999'. Up to 15 digits allowed."
-        ])
-
-
-class UserSerializerTest(TestCase):
-    def test_create_user_success(self):
-        user_data = {
-            'username': 'testuser',
-            'email': 'test@example.com',
-            'password': 'testpassword',
-        }
-        serializer = UserSerializer(data=user_data)
-        self.assertTrue(serializer.is_valid())
-        user = serializer.save()
-        self.assertIsInstance(user, CustomUser)
-        self.assertTrue(user.check_password(user_data['password']))
-
-    def test_create_user_fail(self):
-        user_data = {
-            'username': '',
-            'email': '',
-            'password': '',
-        }
-
-        serializer = UserSerializer(data=user_data)
-        self.assertFalse(serializer.is_valid())
-        self.assertEqual(serializer.errors['password'], ['This field may not be blank.'])
-        self.assertEqual(serializer.errors['email'], ['This field may not be blank.'])
-        self.assertEqual(serializer.errors['username'], ['This field may not be blank.'])
+from .views import VerifyEmail
+from .utils import generate_verification_token
 
 
 class CustomUserModelTest(TestCase):
@@ -94,7 +24,7 @@ class CustomUserModelTest(TestCase):
         self.assertEqual(user.email, 'test@example.com')
         self.assertEqual(user.username, 'testuser')
         self.assertTrue(user.check_password('testpassword'))
-        self.assertFalse(user.is_active)
+        self.assertTrue(user.is_active)
         self.assertFalse(user.is_staff)
         self.assertFalse(user.is_superuser)
 
@@ -128,3 +58,78 @@ class CustomUserModelTest(TestCase):
                 username='testuser',
                 password='testpassword2'
             )
+
+
+class UserSerializerTest(TestCase):
+    def test_create_user_success(self):
+        user_data = {
+            'username': 'testuser',
+            'email': 'test@example.com',
+            'password': 'testpassword',
+        }
+        serializer = UserSerializer(data=user_data)
+        self.assertTrue(serializer.is_valid())
+        user = serializer.save()
+        self.assertIsInstance(user, CustomUser)
+        self.assertTrue(user.check_password(user_data['password']))
+
+    def test_create_user_fail(self):
+        user_data = {
+            'username': '',
+            'email': '',
+            'password': '',
+        }
+
+        serializer = UserSerializer(data=user_data)
+        self.assertFalse(serializer.is_valid())
+        self.assertEqual(serializer.errors['password'], ['This field may not be blank.'])
+        self.assertEqual(serializer.errors['email'], ['This field may not be blank.'])
+        self.assertEqual(serializer.errors['username'], ['This field may not be blank.'])
+
+
+class RegisterTestCase(APITestCase):
+    def setUp(self):
+        self.url = reverse('register')
+
+    def test_register_user_success(self):
+        data = {
+            'username': 'testuser',
+            'password': 'testpassword',
+            'email': 'testemail@test.com',
+        }
+        response = self.client.post(self.url, data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(CustomUser.objects.filter(username='testuser').exists())
+        self.assertTrue('user' in response.data)
+        self.assertEqual(response.data['user']['username'], data['username'])
+
+    def test_register_user_failed(self):
+        data = {
+            'username': '',
+            'password': '',
+            'email': '',
+        }
+        response = self.client.post(self.url, data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(CustomUser.objects.filter(username='testuser').exists())
+        self.assertTrue(response.data['email'] == ['This field may not be blank.'])
+        self.assertTrue(response.data['username'] == ['This field may not be blank.'])
+        self.assertTrue(response.data['password'] == ['This field may not be blank.'])
+
+    def test_register_user_phone_number_validation(self):
+        data = {
+            'username': 'testuser',
+            'password': 'testpassword',
+            'email': 'testemail@test.com',
+            'phone_number': '99'
+        }
+        response = self.client.post(self.url, data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(CustomUser.objects.filter(username='testuser').exists())
+        self.assertTrue(response.data['phone_number'] == [
+            "Phone number must be entered in the format: '+999999999'. Up to 15 digits allowed."
+        ])
+

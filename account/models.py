@@ -30,7 +30,6 @@ class CustomUserManager(BaseUserManager):
     def create_superuser(self, username, email, password, **extra_fields):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
-        extra_fields.setdefault('is_active', True)
 
         if extra_fields.get('is_staff') is not True:
             raise ValueError('Superuser must be assigned to is_staff=True')
@@ -49,14 +48,15 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     phone_number = models.CharField(max_length=15, validators=[PHONE_NUMBER_VALIDATOR], blank=True, null=True, unique=True)
     email_verified = models.BooleanField(default=False)
     phone_verified = models.BooleanField(default=False)
-    verification_code = models.CharField(max_length=21)
+    verification_code = models.CharField(max_length=64, null=True)
+    verification_code_expiration = models.DateTimeField(null=True)
 
     date_joined = models.DateTimeField(default=timezone.now)
     last_login = models.DateTimeField(default=timezone.now)
 
     is_staff = models.BooleanField(default=False)
     is_superuser = models.BooleanField(default=False)
-    is_active = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
 
     objects = CustomUserManager()
 
