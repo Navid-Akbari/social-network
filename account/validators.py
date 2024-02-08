@@ -7,10 +7,16 @@ PHONE_NUMBER_VALIDATOR = RegexValidator(
 )
 
 USERNAME_VALIDATOR = RegexValidator(
-    regex=r'^[\w.@+-]+$',
+    regex=r'^[\w.+-]+$',
     message="Enter a valid username. This value may contain only letters, numbers, and @/./+/-/_ characters."
 )
 
-def username_length_validation(username):
-    if len(username) < 3:
-        raise ValidationError('Username cannot be less than 3 characters.')
+NAME_VALIDATOR = RegexValidator(
+    regex=r'^[a-zA-Z]+$',
+    message="Invalid format."
+)
+
+def name_length_validation(name):
+
+    if len(name) < 3:
+        raise ValidationError('This field cannot be less than 3 characters.')

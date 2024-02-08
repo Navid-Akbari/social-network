@@ -5,12 +5,14 @@ from django.utils.encoding import force_str
 
 from rest_framework.decorators import APIView
 from rest_framework.response import Response
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import status, generics, mixins
 import jwt
 
 from .serializers import UserSerializer
 from .models import CustomUser
 from .utils import send_email, generate_verification_token, token_expiration_time, token_has_expired
+from .permissions import IsOwnerOrAdmin
 
 
 class UserAccountManager(
@@ -21,11 +23,15 @@ class UserAccountManager(
         mixins.DestroyModelMixin,
         generics.GenericAPIView
     ):
+
     queryset = CustomUser.objects.all()
     serializer_class = UserSerializer
 
+
     def post(self, request, *args, **kwargs):
+        self.permission_classes = [AllowAny]
         return self.create(request, *args, **kwargs)
+
 
     def get(self, request, *args, **kwargs):
         pk = kwargs.get('pk')
@@ -38,8 +44,10 @@ class UserAccountManager(
         pk = kwargs.get('pk')
         return self.partial_update(request, *args, **kwargs)
 
+
     def delete(self, request, *args, **kwargs):
         return self.destroy(request, *args, **kwargs)
+
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -53,7 +61,25 @@ class UserAccountManager(
 
         return queryset
 
+
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [AllowAny()]
+        elif self.request.method == 'GET':
+            return [AllowAny()]
+        elif self.request.method == 'PATCH' or self.request.method == 'DELETE':
+            return [IsAuthenticated(), IsOwnerOrAdmin()]
+
+
+    def handle_exception(self, exception):
+
+        if isinstance(exception, AssertionError):
+            return Response({'message': 'Invalid url parameter.'}, status=status.HTTP_400_BAD_REQUEST)
+        return super().handle_exception(exception)
+
+
 class VerifyEmail(APIView):
+
     def post(self, request, *args, **kwargs):
         header = request.headers.get('Authorization')
 
@@ -89,6 +115,7 @@ class VerifyEmail(APIView):
             return Response({'error': 'Token has expired.'}, status=status.HTTP_400_BAD_REQUEST)
         except jwt.exceptions.DecodeError as e:
             return Response({'error': 'Invalid Token'}, status=status.HTTP_400_BAD_REQUEST)
+
 
     def get(self, request, *args, **kwargs):
         token = request.query_params.get('token')

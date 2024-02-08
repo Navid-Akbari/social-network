@@ -1,18 +1,15 @@
-from django.db import models
+from django.db import models, utils
+from django.core.exceptions import ValidationError
 from django.contrib.auth import password_validation
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.utils import timezone
 
-from .validators import USERNAME_VALIDATOR, PHONE_NUMBER_VALIDATOR, username_length_validation
+from .validators import USERNAME_VALIDATOR, PHONE_NUMBER_VALIDATOR, NAME_VALIDATOR, name_length_validation
 
 class CustomUserManager(BaseUserManager):
-    def create_user(self, username, email, password, **extra_fields):
-        if not email:
-            raise ValueError('User must have an email')
-        
-        if not username:
-            raise ValueError('User must have a username')
-        
+
+    def create_user(self, username, email, password=None, **extra_fields):
+       
         user = self.model(
             email = self.normalize_email(email),
             username = username,
@@ -27,7 +24,8 @@ class CustomUserManager(BaseUserManager):
         return user
     
     
-    def create_superuser(self, username, email, password, **extra_fields):
+    def create_superuser(self, username, email, password=None, **extra_fields):
+
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
 
@@ -40,16 +38,17 @@ class CustomUserManager(BaseUserManager):
 
 
 class CustomUser(AbstractBaseUser, PermissionsMixin):
-    first_name = models.CharField(max_length=50, blank=True, null=True)
-    last_name = models.CharField(max_length=50, blank=True, null=True)
-    username = models.CharField(max_length=50, validators=[USERNAME_VALIDATOR, username_length_validation], unique=True)
-    email = models.EmailField(max_length=50, unique=True)
-    password = models.CharField(max_length=128, validators=[password_validation.validate_password])
+
+    first_name = models.CharField(max_length=50, validators=[NAME_VALIDATOR, name_length_validation], blank=True, null=True)
+    last_name = models.CharField(max_length=50, validators=[NAME_VALIDATOR, name_length_validation], blank=True, null=True)
+    username = models.CharField(max_length=50, validators=[USERNAME_VALIDATOR, name_length_validation], unique=True, blank=False)
+    email = models.EmailField(max_length=50, unique=True, blank=False)
+    password = models.CharField(max_length=128, validators=[password_validation.validate_password], blank=False)
     phone_number = models.CharField(max_length=15, validators=[PHONE_NUMBER_VALIDATOR], blank=True, null=True, unique=True)
     email_verified = models.BooleanField(default=False)
     phone_verified = models.BooleanField(default=False)
-    verification_code = models.CharField(max_length=64, null=True)
-    verification_code_expiration = models.DateTimeField(null=True)
+    verification_code = models.CharField(max_length=64, default=None, null=True, blank=True)
+    verification_code_expiration = models.DateTimeField(default=None, null=True, blank=True)
 
     date_joined = models.DateTimeField(default=timezone.now)
     last_login = models.DateTimeField(default=timezone.now)
@@ -62,3 +61,18 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
+
+    
+    def save(self, *args, **kwargs):
+        try:
+            self.full_clean()
+
+            if self.first_name:
+                self.first_name = self.first_name.capitalize()
+            
+            if self.last_name:
+                self.last_name = self.last_name.capitalize()
+                
+            super(CustomUser, self).save(*args, **kwargs)
+        except utils.IntegrityError as error:
+            raise ValidationError(f'error: {error}')

@@ -1,11 +1,12 @@
 from django.contrib.auth.hashers import make_password
 
-from rest_framework import serializers, status
+from rest_framework import serializers
 
 from .models import CustomUser
 
 
 class UserSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = CustomUser
         fields = [
@@ -20,6 +21,7 @@ class UserSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'password': {'write_only': True},
         }
+
 
     def create(self, validated_data):
         password = validated_data.pop('password')
