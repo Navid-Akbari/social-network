@@ -1,5 +1,4 @@
 from django.contrib.sites.shortcuts import get_current_site
-from django.shortcuts import get_object_or_404
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 from django.urls import reverse
@@ -25,7 +24,7 @@ def send_email(request, user, token):
         '\nPlease click on the link below to verify your email:\n'
         f'{absolute_url}'
     )
-    email = EmailMessage(subject=email_subject, body=email_body, to=['Galahadsp@gmail.com', user.email])
+    email = EmailMessage(subject=email_subject, body=email_body, to=[user.email])
     email.send()
 
 
@@ -38,9 +37,7 @@ def generate_verification_token(length):
 
 
 def token_expiration_time(minutes):
-    current_time = timezone.now()
-    expiration_time = current_time + timedelta(minutes=minutes)
-    return expiration_time
+    return timezone.now() + timedelta(minutes=minutes)
 
 
 def token_has_expired(expiration_time):

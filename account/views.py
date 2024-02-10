@@ -7,11 +7,16 @@ from rest_framework.decorators import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import status, generics, mixins
-import jwt
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from .serializers import UserSerializer
 from .models import CustomUser
-from .utils import send_email, generate_verification_token, token_expiration_time, token_has_expired
+from .utils import (
+    send_email, 
+    generate_verification_token, 
+    token_expiration_time, 
+    token_has_expired
+)
 from .permissions import IsOwnerOrAdmin
 
 
@@ -39,6 +44,7 @@ class UserAccountManager(
             return self.retrieve(request, *args, **kwargs)
         
         return self.list(request, *args, **kwargs)
+
 
     def patch(self, request, *args, **kwargs):
         pk = kwargs.get('pk')
@@ -79,43 +85,43 @@ class UserAccountManager(
 
 
 class VerifyEmail(APIView):
+    authentication_classes = [JWTAuthentication]
 
     def post(self, request, *args, **kwargs):
-        header = request.headers.get('Authorization')
 
-        if not header:
-            return Response({'error': 'Authorization header missing.'}, status=status.HTTP_400_BAD_REQUEST)
+        user = get_object_or_404(CustomUser, pk=request.user.id)
 
-        token = header.split()[1]
+        if user.email_verified:
+            return Response(
+                {'error': 'This email has already been verified.'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        if not token:
-            return Response({'error': 'Token required.'}, status=status.HTTP_400_BAD_REQUEST)
+        if user.verification_code_expiration is not None:
+            if not token_has_expired(user.verification_code_expiration):
+                return Response(
+                    {'error': 'An email has been sent recently.'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
-        try:
-            payload = jwt.decode(jwt=token, key=settings.SECRET_KEY, algorithms=['HS256'])
-            user_id = payload.get('user_id')
-            user = get_object_or_404(CustomUser, pk=user_id)
-
-            if user.email_verified:
-                return Response({'error': 'This email has already been verified.'}, status=status.HTTP_400_BAD_REQUEST)
-    
-            if user.verification_code_expiration:
-                if not token_has_expired(user.verification_code_expiration):
-                    return Response({'error': 'An email has been sent recently.'}, status=status.HTTP_400_BAD_REQUEST)
-
-            token = generate_verification_token(32)
-            expiration_time = token_expiration_time(minutes=10)
-            user.verification_code = token
-            user.verification_code_expiration = expiration_time
+        user.verification_code = generate_verification_token(32)
+        user.verification_code_expiration = token_expiration_time(minutes=10)
+        try:    
             user.save()
-            send_email(request=request, user=user, token=token)
-            return Response({'message': 'An email has been sent.'}, status=status.HTTP_200_OK)
+        except Exception:
+            return Response(
+                {'error:': 'There was an error while updating the user in the database.'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
 
-        except jwt.ExpiredSignatureError as e:
-            return Response({'error': 'Token has expired.'}, status=status.HTTP_400_BAD_REQUEST)
-        except jwt.exceptions.DecodeError as e:
-            return Response({'error': 'Invalid Token'}, status=status.HTTP_400_BAD_REQUEST)
+        send_email(request=request, user=user, token=user.verification_code)
+        return Response({'message': 'An email has been sent.'}, status=status.HTTP_200_OK)
 
+    # since email verification request handling can be done differently
+    # meaning the back-end can directly return an html response, or have the 
+    # verification link redirect the user to a front-end view where a request
+    # is sent to the back-end and json is returned. I for now, have chosen
+    # to stick with the latter
 
     def get(self, request, *args, **kwargs):
         token = request.query_params.get('token')
@@ -128,11 +134,17 @@ class VerifyEmail(APIView):
         user = get_object_or_404(CustomUser, id=user_id)
 
         if user.email_verified:
-            return Response({'error': 'This email has already been verified.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'error': 'This email has already been verified.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        if token_has_expired(user.verification_code_expiration):
-            user
-            return Response({'error': 'The verification token has expired.'}, status=status.HTTP_400_BAD_REQUEST)
+        if user.verification_code_expiration is not None:
+            if token_has_expired(user.verification_code_expiration):
+                return Response(
+                    {'error': 'The verification token has expired.'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
         if token != user.verification_code:
             return Response({'error': 'Invalid Token.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -140,5 +152,13 @@ class VerifyEmail(APIView):
         user.email_verified = True
         user.verification_code = None
         user.verification_code_expiration = None
-        user.save()
+
+        try:    
+            user.save()
+        except Exception:
+            return Response(
+                {'error:': 'There was an error while updating the user in the database.'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
+        
         return Response({'message': 'Email verified.'}, status=status.HTTP_200_OK)
