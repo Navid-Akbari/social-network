@@ -1,7 +1,7 @@
-from django.db import models, utils
 from django.core.exceptions import ValidationError
 from django.contrib.auth import password_validation
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.db import models, utils
 from django.utils import timezone
 
 from .validators import USERNAME_VALIDATOR, PHONE_NUMBER_VALIDATOR, NAME_VALIDATOR, name_length_validation
@@ -47,8 +47,8 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     phone_number = models.CharField(max_length=15, validators=[PHONE_NUMBER_VALIDATOR], blank=True, null=True, unique=True)
     email_verified = models.BooleanField(default=False)
     phone_verified = models.BooleanField(default=False)
-    verification_code = models.CharField(max_length=64, default=None, null=True, blank=True)
-    verification_code_expiration = models.DateTimeField(default=None, null=True, blank=True)
+    verification_token = models.CharField(max_length=64, default=None, null=True, blank=True)
+    verification_token_expiration = models.DateTimeField(default=None, null=True, blank=True)
 
     date_joined = models.DateTimeField(default=timezone.now)
     last_login = models.DateTimeField(default=timezone.now)

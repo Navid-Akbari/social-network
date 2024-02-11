@@ -1,7 +1,7 @@
-from django.test import TestCase, Client
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import check_password
 from django.conf import settings
+from django.test import TestCase, Client
 from django.urls import reverse
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
@@ -15,7 +15,6 @@ from account.utils import generate_verification_token
 
 CustomUser = get_user_model()
 
-# since the other parts have been unit tested, we won't test all invalid inputs
 class UserAccountManagement(TestCase):
 
     def setUp(self):
@@ -32,7 +31,14 @@ class UserAccountManagement(TestCase):
             email='test1@example.com',
             password='testing321'
         )
-        self.access_token = AccessToken.for_user(user=self.first_test_user)
+        self.admin = CustomUser.objects.create_superuser(
+            username='admin',
+            email='admin@example.com',
+            password='testing321'
+        )
+        self.test_user_access_token = AccessToken.for_user(user=self.first_test_user)
+        self.admin_access_token = AccessToken.for_user(user=self.admin)
+
 
 
     def test_post_valid(self):
@@ -75,16 +81,23 @@ class UserAccountManagement(TestCase):
 
 
     def test_get_with_no_parameter(self):
-        response = self.client.get(self.list_create_url)
+        response = self.client.get(
+            self.list_create_url,
+            HTTP_AUTHORIZATION=f'Bearer {self.admin_access_token}',
+        )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data), 2)
+        self.assertEqual(len(response.data), 3)
         self.assertEqual(response.data[0]['username'], 'test')
         self.assertEqual(response.data[1]['username'], 'test1')
+        self.assertEqual(response.data[2]['username'], 'admin')
 
 
     def test_get_with_parameter(self):
-        response = self.client.get(self.list_create_url + '?username=test')
+        response = self.client.get(
+            self.list_create_url + '?username=test',
+            HTTP_AUTHORIZATION=f'Bearer {self.admin_access_token}',
+        )
 
         self.assertEqual(response.status_code, 200)
         self.assertTrue(len(response.data), 1)
@@ -95,7 +108,7 @@ class UserAccountManagement(TestCase):
         response = self.client.patch(
             self.update_destroy_url,
             data={'username': 'updatedtest', 'email': 'updatedtest@example.com'},
-            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
+            HTTP_AUTHORIZATION=f'Bearer {self.test_user_access_token}',
             content_type='application/json'
         )
 
@@ -108,7 +121,7 @@ class UserAccountManagement(TestCase):
         response = self.client.patch(
             self.update_destroy_url,
             data={'username': '', 'email': ''},
-            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
+            HTTP_AUTHORIZATION=f'Bearer {self.test_user_access_token}',
             content_type='application/json'
         )
 
@@ -123,17 +136,20 @@ class UserAccountManagement(TestCase):
             content_type='application/json'
         )
 
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 401)
 
         response_data = json.loads(response.content)
-        self.assertEqual(response_data['error']['message'], 'Request forbidden -- authorization will not help')
+        self.assertEqual(
+            response_data['error']['message'],
+            'No permission -- see authorization schemes'
+        )
         
 
 
     def test_delete_valid(self):
         response = self.client.delete(
             self.update_destroy_url,
-            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
+            HTTP_AUTHORIZATION=f'Bearer {self.test_user_access_token}',
         )
 
         self.assertEqual(response.status_code, 204)
@@ -144,124 +160,131 @@ class UserAccountManagement(TestCase):
             self.update_destroy_url,
         )
 
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 401)
 
         response_data = json.loads(response.content)
         self.assertEqual(response_data['detail'], 'Authentication credentials were not provided.')
 
 
-class TestEmailVerification(TestCase):
+class TestRequestEmailVerification(TestCase):
 
     def setUp(self):
         settings.EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-        self.verify_email_url = reverse('verify_email')
+        self.request_email_verification_url = reverse('request_email_verification')
         self.client = Client()
         self.user = CustomUser.objects.create_user(
             username='test',
             email='test@example.com',
-            password='testing321',
+            password='testing321'
         )
-        self.access_token = AccessToken.for_user(user=self.user)
+        self.test_user_access_token = AccessToken.for_user(user=self.user)
         self.uidb64 = urlsafe_base64_encode(force_bytes(self.user.pk))
 
 
-    def test_email_verification_valid_post(self):
+    def test_request_email_verification_valid_post(self):
         response = self.client.post(
-            self.verify_email_url,
-            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
+            self.request_email_verification_url,
+            HTTP_AUTHORIZATION=f'Bearer {self.test_user_access_token}',
         )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['message'], 'An email has been sent.')
 
 
-    def test_email_verification_already_verified_post(self):
+    def test_request_email_verification_already_verified_post(self):
         self.user.email_verified = True
         self.user.save()
 
         response = self.client.post(
-            self.verify_email_url,
-            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
+            self.request_email_verification_url,
+            HTTP_AUTHORIZATION=f'Bearer {self.test_user_access_token}',
         )
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data['error'], 'This email has already been verified.')
 
 
-
-    def test_email_verification_has_token_post(self):
-        self.user.verification_code_expiration = timezone.now() + timedelta(minutes=5)
+    def test_request_email_verification_has_token(self):
+        self.user.verification_token_expiration = timezone.now() + timedelta(minutes=5)
         self.user.save()
 
         response = self.client.post(
-            self.verify_email_url,
-            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
+            self.request_email_verification_url,
+            HTTP_AUTHORIZATION=f'Bearer {self.test_user_access_token}',
         )
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data['error'], 'An email has been sent recently.')
 
 
-    def test_email_verification_valid_get(self):
-        self.user.verification_code = generate_verification_token(32)
+class TestVerifyEmail(TestCase):
+
+    def setUp(self):
+        self.verify_email_url = reverse('verify_email')
+        self.verification_token = generate_verification_token()
+        self.user = CustomUser.objects.create_user(
+            username='test',
+            email='test@example.com',
+            password='testing321'
+        )
+        self.uidb64 = urlsafe_base64_encode(force_bytes(self.user.pk))
+
+    def test_verify_email_valid(self):
+        self.user.verification_token = self.verification_token
         self.user.save()
 
-        response = self.client.get(
-            self.verify_email_url
-            + f'?uidb64={self.uidb64}'
-            + f'&token={self.user.verification_code}'
+        response = self.client.post(
+            self.verify_email_url,
+            data={'token': self.verification_token, 'uidb64': self.uidb64},
+            content_type='application/json'
         )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['message'], 'Email verified.')
 
 
-    def test_email_verification_missing_params_get(self):
-        response = self.client.get(self.verify_email_url)
+    def test_verify_email_missing_params(self):
+        response = self.client.post(self.verify_email_url)
 
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.data['error'], 'parameters are missing.')
+        self.assertEqual(response.data['error'], 'Parameters are missing.')
 
 
-    def test_email_verification_already_verified_get(self):
-        self.user.verification_code = generate_verification_token(32)
+    def test_verify_email_already_verified(self):
         self.user.email_verified = True
         self.user.save()
 
-        response = self.client.get(
-            self.verify_email_url
-            + f'?uidb64={self.uidb64}'
-            + f'&token={self.user.verification_code}'
+        response = self.client.post(
+            self.verify_email_url,
+            data={'token': self.verification_token, 'uidb64': self.uidb64},
+            content_type='application/json'
         )
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data['error'], 'This email has already been verified.')
 
 
-    def test_email_verification_token_expired_get(self):
-        self.user.verification_code = generate_verification_token(32)
-        self.user.verification_code_expiration = timezone.now() - timedelta(minutes=10)
+    def test_verify_email_token_has_expired(self):
+        self.user.verification_token_expiration = timezone.now() - timedelta(minutes=10)
         self.user.save()
 
-        response = self.client.get(
-            self.verify_email_url
-            + f'?uidb64={self.uidb64}'
-            + f'&token={self.user.verification_code}'
+        response = self.client.post(
+            self.verify_email_url,
+            data={'token': self.verification_token, 'uidb64': self.uidb64},
+            content_type='application/json'
         )
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data['error'], 'The verification token has expired.')
 
 
-    def test_email_verification_wrong_token_get(self):
-        self.user.verification_code = generate_verification_token(32)
-        self.user.save()
-
-        response = self.client.get(
-            self.verify_email_url
-            + f'?uidb64={self.uidb64}'
-            + f'&token={self.user.verification_code}abcd'
+    def test_verify_email_wrong_token(self):
+        response = self.client.post(
+            self.verify_email_url,
+            data={'token': 'abcd', 'uidb64': self.uidb64},
+            content_type='application/json'
         )
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data['error'], 'Invalid Token.')
+

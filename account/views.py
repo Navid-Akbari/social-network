@@ -1,23 +1,22 @@
-from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import force_str
 
-from rest_framework.decorators import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import status, generics, mixins
+from rest_framework.decorators import APIView
+from rest_framework.permissions import AllowAny, IsAdminUser
+from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from .serializers import UserSerializer
 from .models import CustomUser
+from .permissions import IsOwnerOrAdmin
+from .serializers import UserSerializer
 from .utils import (
-    send_email, 
+    send_email_verification_email, 
     generate_verification_token, 
     token_expiration_time, 
     token_has_expired
 )
-from .permissions import IsOwnerOrAdmin
 
 
 class UserAccountManager(
@@ -34,7 +33,6 @@ class UserAccountManager(
 
 
     def post(self, request, *args, **kwargs):
-        self.permission_classes = [AllowAny]
         return self.create(request, *args, **kwargs)
 
 
@@ -47,7 +45,10 @@ class UserAccountManager(
 
 
     def patch(self, request, *args, **kwargs):
-        pk = kwargs.get('pk')
+        # this method shouldn't change passwords
+        if 'password' in request.data:
+            request.data['password'].pop()
+
         return self.partial_update(request, *args, **kwargs)
 
 
@@ -72,9 +73,9 @@ class UserAccountManager(
         if self.request.method == 'POST':
             return [AllowAny()]
         elif self.request.method == 'GET':
-            return [AllowAny()]
+            return [IsAdminUser()]
         elif self.request.method == 'PATCH' or self.request.method == 'DELETE':
-            return [IsAuthenticated(), IsOwnerOrAdmin()]
+            return [IsOwnerOrAdmin()]
 
 
     def handle_exception(self, exception):
@@ -84,7 +85,7 @@ class UserAccountManager(
         return super().handle_exception(exception)
 
 
-class VerifyEmail(APIView):
+class RequestEmailVerification(APIView):
     authentication_classes = [JWTAuthentication]
 
     def post(self, request, *args, **kwargs):
@@ -97,15 +98,15 @@ class VerifyEmail(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        if user.verification_code_expiration is not None:
-            if not token_has_expired(user.verification_code_expiration):
+        if user.verification_token_expiration is not None:
+            if not token_has_expired(user.verification_token_expiration):
                 return Response(
                     {'error': 'An email has been sent recently.'}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-        user.verification_code = generate_verification_token(32)
-        user.verification_code_expiration = token_expiration_time(minutes=10)
+        user.verification_token = generate_verification_token()
+        user.verification_token_expiration = token_expiration_time(minutes=10)
         try:    
             user.save()
         except Exception:
@@ -114,22 +115,19 @@ class VerifyEmail(APIView):
                 status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
 
-        send_email(request=request, user=user, token=user.verification_code)
+        send_email_verification_email(request=request, user=user, token=user.verification_token)
         return Response({'message': 'An email has been sent.'}, status=status.HTTP_200_OK)
 
-    # since email verification request handling can be done differently
-    # meaning the back-end can directly return an html response, or have the 
-    # verification link redirect the user to a front-end view where a request
-    # is sent to the back-end and json is returned. I for now, have chosen
-    # to stick with the latter
 
-    def get(self, request, *args, **kwargs):
-        token = request.query_params.get('token')
-        uidb64 = request.query_params.get('uidb64')
+class VerifyEmail(APIView):
+    class_permissions = [AllowAny]
 
-        if not token or not uidb64:
-            return Response({'error': 'parameters are missing.'}, status=status.HTTP_400_BAD_REQUEST)
+    def post(self, request, *args, **kwargs):
+        if 'token' not in request.data or 'uidb64' not in request.data:
+            return Response({'error': 'Parameters are missing.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        token = request.data['token']
+        uidb64 = request.data['uidb64']
         user_id = force_str(urlsafe_base64_decode(uidb64))
         user = get_object_or_404(CustomUser, id=user_id)
 
@@ -139,19 +137,19 @@ class VerifyEmail(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        if user.verification_code_expiration is not None:
-            if token_has_expired(user.verification_code_expiration):
+        if user.verification_token_expiration is not None:
+            if token_has_expired(user.verification_token_expiration):
                 return Response(
                     {'error': 'The verification token has expired.'}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-        if token != user.verification_code:
+        if token != user.verification_token:
             return Response({'error': 'Invalid Token.'}, status=status.HTTP_400_BAD_REQUEST)
 
         user.email_verified = True
-        user.verification_code = None
-        user.verification_code_expiration = None
+        user.verification_token = None
+        user.verification_token_expiration = None
 
         try:    
             user.save()
