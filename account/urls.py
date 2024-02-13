@@ -16,5 +16,7 @@ urlpatterns = [
             views.RequestEmailVerification.as_view(),
             name='request_email_verification'
         ),
-    path('account/verify-email/', views.VerifyEmail.as_view(), name='verify_email')
+    path('account/verify-email/', views.VerifyEmail.as_view(), name='verify_email'),
+    path('account/request-password-reset/', views.RequestPasswordReset.as_view(), name='request_password_reset'),
+    path('account/reset-password/', views.ResetPassword.as_view(), name='reset_password')
 ]

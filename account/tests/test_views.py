@@ -221,13 +221,14 @@ class TestVerifyEmail(TestCase):
 
     def setUp(self):
         self.verify_email_url = reverse('verify_email')
-        self.verification_token = generate_verification_token()
         self.user = CustomUser.objects.create_user(
             username='test',
             email='test@example.com',
             password='testing321'
         )
+        self.verification_token = generate_verification_token()
         self.uidb64 = urlsafe_base64_encode(force_bytes(self.user.pk))
+
 
     def test_verify_email_valid(self):
         self.user.verification_token = self.verification_token
@@ -288,3 +289,291 @@ class TestVerifyEmail(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data['error'], 'Invalid Token.')
 
+    
+    def test_verify_email_bad_uidb64(self):
+        response = self.client.post(
+            self.verify_email_url,
+            data={'token': self.verification_token, 'uidb64': 'abcd'},
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['error'], 'Bad uidb64.')
+
+
+class TestRequestPasswordReset(TestCase):
+    
+    def setUp(self):
+        settings.EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+        self.request_password_reset_url = reverse('request_password_reset')
+        self.client = Client()
+        self.user = CustomUser.objects.create_user(
+            username='test',
+            email='test@example.com',
+            password='testing321'
+        )
+
+    
+    def test_request_password_reset_valid(self):
+        response = self.client.post(
+            self.request_password_reset_url,
+            data={'email': 'test@example.com'},
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['message'], 'A password reset email has been sent.')
+
+    
+    def test_request_password_reset_missing_param(self):
+        response = self.client.post(self.request_password_reset_url)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['error'], 'Email missing.')
+
+
+    def test_request_password_reset_throttle(self):
+        self.user.verification_token_expiration = timezone.now() + timedelta(minutes=5)
+        self.user.save()
+
+        response = self.client.post(
+            self.request_password_reset_url,
+            data={'email': 'test@example.com'}
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['error'], 'An Email has been sent recently.')
+
+
+    def test_request_password_reset_wrong_email(self):
+        response = self.client.post(
+            self.request_password_reset_url,
+            data={'email': 'test1@example.com'}
+        )
+        response_data = json.loads(response.content)
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response_data['detail'], 'Not found.')
+
+
+class TestResetPassword(TestCase):
+
+    def setUp(self):
+        self.reset_password_url = reverse('reset_password')
+        self.user = CustomUser.objects.create_user(
+            username='test',
+            email='test@example.com',
+            password='testing321'
+        )
+        self.verification_token = generate_verification_token()
+        self.uidb64 = urlsafe_base64_encode(force_bytes(self.user.pk))
+        self.access_token = AccessToken.for_user(user=self.user)
+
+
+    def test_reset_password_with_email_valid(self):
+        self.user.verification_token = self.verification_token
+        self.user.save()
+        response = self.client.post(
+            self.reset_password_url,
+            data={
+                'token': self.verification_token,
+                'uidb64': self.uidb64,
+                'password1': 'updatedtesting321',
+                'password2': 'updatedtesting321'
+            },
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['message'], 'Password changed successfully.')
+
+
+    def test_reset_password_with_email_missing_params(self):
+        response = self.client.post(self.reset_password_url)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.data['error'],
+            'Missing Parameters. (token, uidb64, password1, password2)'
+        )
+
+
+    def test_reset_password_with_email_mismatched_passwords(self):
+        response = self.client.post(
+            self.reset_password_url,
+            data={
+                'token': self.verification_token,
+                'uidb64': self.uidb64,
+                'password1': 'updatedtesting321',
+                'password2': 'updatedtesting4321'
+            },
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['error'], 'Passwords do not match.')
+
+
+    def test_reset_password_with_email_bad_uidb64(self):
+        response = self.client.post(
+            self.reset_password_url,
+            data={
+                'token': self.verification_token,
+                'uidb64': 'abcd',
+                'password1': 'updatedtesting321',
+                'password2': 'updatedtesting321'
+            },
+            content_type='application/json'
+        )
+
+        response_data = json.loads(response.content)
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response_data['detail'], 'Passwords do not match.')
+
+
+    def test_reset_password_with_email_bad_uidb64(self):
+        response = self.client.post(
+            self.reset_password_url,
+            data={
+                'token': self.verification_token,
+                'uidb64': 'abcd',
+                'password1': 'updatedtesting321',
+                'password2': 'updatedtesting321'
+            },
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['error'], 'Bad uidb64.')
+
+
+    def test_reset_password_with_email_bad_input_for_user_lookup(self):
+        response = self.client.post(
+            self.reset_password_url,
+            data={
+                'token': self.verification_token,
+                'uidb64': self.uidb64 + 'a',
+                'password1': 'updatedtesting321',
+                'password2': 'updatedtesting321'
+            },
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['error'], 'Bad input for user lookup.')
+
+
+    def test_reset_password_with_email_expired_token(self):
+        self.user.verification_token_expiration = timezone.now() - timedelta(minutes=5)
+        self.user.save()
+
+        response = self.client.post(
+            self.reset_password_url,
+            data={
+                'token': self.verification_token,
+                'uidb64': self.uidb64,
+                'password1': 'updatedtesting321',
+                'password2': 'updatedtesting321'
+            },
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['error'], 'Token has expired.')
+
+    def test_reset_password_with_email_wrong_token(self):
+        self.user.verification_token = self.verification_token
+        self.user.save()
+
+        response = self.client.post(
+            self.reset_password_url,
+            data={
+                'token': self.verification_token + 'a',
+                'uidb64': self.uidb64,
+                'password1': 'updatedtesting321',
+                'password2': 'updatedtesting321'
+            },
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['error'], 'Invalid Token.')
+
+
+    def test_reset_password_with_jwt_token_valid(self):
+        response = self.client.post(
+            self.reset_password_url,
+            data={
+                'old_password': 'testing321',
+                'password1': 'updatedtesting321',
+                'password2': 'updatedtesting321',
+            },
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['message'], 'Password changed successfully.')
+
+
+    def test_reset_password_with_jwt_token_bad_token(self):
+        response = self.client.post(
+            self.reset_password_url,
+            data={
+                'old_password': 'testing321',
+                'password1': 'updatedtesting321',
+                'password2': 'updatedtesting321',
+            },
+            HTTP_AUTHORIZATION=f'Bearer abcd',
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['error'][0:19], 'Problem with token:')
+
+
+    def test_reset_password_with_jwt_token_missing_params(self):
+        response = self.client.post(
+            self.reset_password_url,
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.data['error'], 
+            'Missing parameters. (old_password, password1, password2)'
+        )
+
+
+    def test_reset_password_with_jwt_token_wrong_old_password(self):
+        response = self.client.post(
+            self.reset_password_url,
+            data={
+                'old_password': 'testing',
+                'password1': 'updatedtesting321',
+                'password2': 'updatedtesting321',
+            },
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['error'], 'Old password is not correct.')
+
+
+    def test_reset_password_with_jwt_token_mismatched_password(self):
+        response = self.client.post(
+            self.reset_password_url,
+            data={
+                'old_password': 'testing321',
+                'password1': 'updatedtesting321',
+                'password2': 'updatedtesting',
+            },
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['error'], 'Passwords do not match.')
