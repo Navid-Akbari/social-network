@@ -101,7 +101,7 @@ class UserAccountManager(
 
 
 class RequestEmailVerification(APIView):
-    authentication_classes = []
+    authentication_classes = [JWTAuthentication]
     permission_classes = [AllowAny]
 
     def post(self, request, *args, **kwargs):
@@ -200,15 +200,9 @@ class RequestPasswordReset(APIView):
         if 'email' not in request.data:
             return Response({'error': 'Email missing.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        email=  request.data['email']
+        email = request.data['email']
 
-        try:
-            user = get_object_or_404(CustomUser, email=email)
-        except Exception:
-            return Response(
-                {'error': 'Bad input for user lookup.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        user = get_object_or_404(CustomUser, email=email)
 
         if user.verification_token_expiration is not None:
             if not token_has_expired(user.verification_token_expiration):
