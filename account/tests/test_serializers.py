@@ -1,12 +1,9 @@
-from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from account.serializers import UserSerializer
 
-CustomUser = get_user_model()
 
-
-class UserSerializerTestCase(TestCase):
+class TestUserSerializer(TestCase):
 
     def setUp(self):
         self.data = {
@@ -17,6 +14,7 @@ class UserSerializerTestCase(TestCase):
             'last_name': 'test',
             'phone_number': '1234567890'
         }
+
 
     def test_create_user(self):
         serializer = UserSerializer(data=self.data)

@@ -6,6 +6,7 @@ from django.utils import timezone
 
 from .validators import USERNAME_VALIDATOR, PHONE_NUMBER_VALIDATOR, NAME_VALIDATOR, name_length_validation
 
+
 class CustomUserManager(BaseUserManager):
 
     def create_user(self, username, email, password=None, **extra_fields):

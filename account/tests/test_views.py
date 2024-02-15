@@ -1,5 +1,5 @@
-from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import check_password
+from django.contrib.auth import get_user_model
 from django.conf import settings
 from django.test import TestCase, Client
 from django.urls import reverse
@@ -13,7 +13,8 @@ import json
 
 from account.utils import generate_verification_token
 
-CustomUser = get_user_model()
+User = get_user_model()
+
 
 class UserAccountManagement(TestCase):
 
@@ -21,17 +22,17 @@ class UserAccountManagement(TestCase):
         self.client = Client()
         self.list_create_url = reverse('users')
         self.update_destroy_url = reverse('users_detail', args=[1])
-        self.first_test_user = CustomUser.objects.create_user(
+        self.first_test_user = User.objects.create_user(
             username='test',
             email='test@example.com',
             password='testing321'
         )
-        CustomUser.objects.create_user(
+        User.objects.create_user(
             username='test1',
             email='test1@example.com',
             password='testing321'
         )
-        self.admin = CustomUser.objects.create_superuser(
+        self.admin = User.objects.create_superuser(
             username='admin',
             email='admin@example.com',
             password='testing321'
@@ -54,7 +55,7 @@ class UserAccountManagement(TestCase):
             content_type='application/json'
         )
 
-        user_from_db = CustomUser.objects.get(username='test2')
+        user_from_db = User.objects.get(username='test2')
 
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data['username'], 'test2')
@@ -172,7 +173,7 @@ class TestRequestEmailVerification(TestCase):
         settings.EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
         self.request_email_verification_url = reverse('request_email_verification')
         self.client = Client()
-        self.user = CustomUser.objects.create_user(
+        self.user = User.objects.create_user(
             username='test',
             email='test@example.com',
             password='testing321'
@@ -221,7 +222,7 @@ class TestVerifyEmail(TestCase):
 
     def setUp(self):
         self.verify_email_url = reverse('verify_email')
-        self.user = CustomUser.objects.create_user(
+        self.user = User.objects.create_user(
             username='test',
             email='test@example.com',
             password='testing321'
@@ -307,7 +308,7 @@ class TestRequestPasswordReset(TestCase):
         settings.EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
         self.request_password_reset_url = reverse('request_password_reset')
         self.client = Client()
-        self.user = CustomUser.objects.create_user(
+        self.user = User.objects.create_user(
             username='test',
             email='test@example.com',
             password='testing321'
@@ -360,7 +361,7 @@ class TestResetPassword(TestCase):
 
     def setUp(self):
         self.reset_password_url = reverse('reset_password')
-        self.user = CustomUser.objects.create_user(
+        self.user = User.objects.create_user(
             username='test',
             email='test@example.com',
             password='testing321'

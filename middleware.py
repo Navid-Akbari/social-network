@@ -2,7 +2,8 @@ from django.http import JsonResponse
 
 from http import HTTPStatus
 
-
+# This middleware was taken from this article:
+# https://rednafi.com/python/return_json_error_payload_in_drf/
 
 class JSONErrorMiddleware:
     """Without this middleware, APIs would respond with
@@ -17,6 +18,7 @@ class JSONErrorMiddleware:
     def __call__(self, request):
         response = self.get_response(request)
 
+        # If the content_type isn't 'application/json', do nothing.
         if not request.content_type == "application/json":
             return response
 

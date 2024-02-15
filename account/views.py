@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.contrib.auth.hashers import check_password
+from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import force_str
@@ -11,7 +12,6 @@ from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from .models import CustomUser
 from .permissions import IsOwnerOrAdmin
 from .serializers import UserSerializer
 from .utils import (
@@ -21,6 +21,8 @@ from .utils import (
     token_expiration_time,
     token_has_expired
 )
+
+User = get_user_model()
 
 
 class UserAccountManager(
@@ -32,7 +34,7 @@ class UserAccountManager(
         generics.GenericAPIView
     ):
 
-    queryset = CustomUser.objects.all()
+    queryset = User.objects.all()
     serializer_class = UserSerializer
 
 
@@ -106,7 +108,7 @@ class RequestEmailVerification(APIView):
 
     def post(self, request, *args, **kwargs):
 
-        user = get_object_or_404(CustomUser, pk=request.user.id)
+        user = get_object_or_404(User, pk=request.user.id)
 
         if user.email_verified:
             return Response(
@@ -154,7 +156,7 @@ class VerifyEmail(APIView):
             return Response({'error': 'Bad uidb64.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            user = get_object_or_404(CustomUser, pk=user_id)
+            user = get_object_or_404(User, pk=user_id)
         except Exception:
             return Response(
                 {'error': 'Bad input for user lookup.'},
@@ -202,7 +204,7 @@ class RequestPasswordReset(APIView):
 
         email = request.data['email']
 
-        user = get_object_or_404(CustomUser, email=email)
+        user = get_object_or_404(User, email=email)
 
         if user.verification_token_expiration is not None:
             if not token_has_expired(user.verification_token_expiration):
@@ -240,7 +242,7 @@ class ResetPassword(APIView):
                 decoded_data = jwt.decode(jwt=jwt_token, key=settings.SECRET_KEY, algorithms=["HS256"])
 
                 try:
-                    user = get_object_or_404(CustomUser, pk=decoded_data['user_id'])
+                    user = get_object_or_404(User, pk=decoded_data['user_id'])
                 except Exception:
                     return Response({'error': 'Bad input for user lookup.'})
 
@@ -305,7 +307,7 @@ class ResetPassword(APIView):
             return Response({'error': 'Bad uidb64.'}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
-            user = get_object_or_404(CustomUser, pk=user_id)
+            user = get_object_or_404(User, pk=user_id)
         except Exception:
             return Response(
                 {'error': 'Bad input for user lookup.'},
