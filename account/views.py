@@ -91,7 +91,6 @@ class UserAccountManager(
             return [JWTAuthentication()]
 
 
-
     def handle_exception(self, exception):
 
         if isinstance(exception, AssertionError):

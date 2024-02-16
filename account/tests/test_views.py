@@ -20,8 +20,8 @@ class UserAccountManagement(TestCase):
 
     def setUp(self):
         self.client = Client()
-        self.list_create_url = reverse('users')
-        self.update_destroy_url = reverse('users_detail', args=[1])
+        self.list_create_url = reverse('account:users')
+        self.update_destroy_url = reverse('account:users_detail', args=[1])
         self.first_test_user = User.objects.create_user(
             username='test',
             email='test@example.com',
@@ -171,7 +171,7 @@ class TestRequestEmailVerification(TestCase):
 
     def setUp(self):
         settings.EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-        self.request_email_verification_url = reverse('request_email_verification')
+        self.request_email_verification_url = reverse('account:request_email_verification')
         self.client = Client()
         self.user = User.objects.create_user(
             username='test',
@@ -221,7 +221,7 @@ class TestRequestEmailVerification(TestCase):
 class TestVerifyEmail(TestCase):
 
     def setUp(self):
-        self.verify_email_url = reverse('verify_email')
+        self.verify_email_url = reverse('account:verify_email')
         self.user = User.objects.create_user(
             username='test',
             email='test@example.com',
@@ -306,7 +306,7 @@ class TestRequestPasswordReset(TestCase):
     
     def setUp(self):
         settings.EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-        self.request_password_reset_url = reverse('request_password_reset')
+        self.request_password_reset_url = reverse('account:request_password_reset')
         self.client = Client()
         self.user = User.objects.create_user(
             username='test',
@@ -360,7 +360,7 @@ class TestRequestPasswordReset(TestCase):
 class TestResetPassword(TestCase):
 
     def setUp(self):
-        self.reset_password_url = reverse('reset_password')
+        self.reset_password_url = reverse('account:reset_password')
         self.user = User.objects.create_user(
             username='test',
             email='test@example.com',

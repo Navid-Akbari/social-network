@@ -9,7 +9,7 @@ User = get_user_model()
 
 
 class PostSerializer(serializers.ModelSerializer):
-    user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
+    user = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
         model = Post
@@ -20,7 +20,20 @@ class PostSerializer(serializers.ModelSerializer):
         }
 
 
+    def create(self, validated_data):
+        user = self.context['request'].user
+        
+        if not isinstance(user, User):
+            raise serializers.ValidationError(
+                {'user': ['User must be authenticated and a valid user instance.']}
+            )
+
+        validated_data['user'] = user
+
+        return super().create(validated_data)
+
+
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        representation['user'] = UserSerializer(instance.user)
+        representation['user'] = UserSerializer(instance.user).data
         return representation
