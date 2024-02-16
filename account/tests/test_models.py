@@ -20,7 +20,6 @@ class TestUserModel(TestCase):
         self.assertFalse(user.is_superuser)
         self.assertTrue(user.is_active)
 
-
     def test_createuser_missing_username(self):
         with self.assertRaises(ValidationError):
             User.objects.create_user(
@@ -28,7 +27,6 @@ class TestUserModel(TestCase):
                 email='test@example.com',
                 password='testing321'
             )
-
 
     def test_createuser_username_length_validation(self):
         with self.assertRaises(ValidationError):
@@ -38,7 +36,6 @@ class TestUserModel(TestCase):
                 password='testing321'
             )
 
-
     def test_createuser_username_symbols_validation(self):
         with self.assertRaises(ValidationError):
             User.objects.create_user(
@@ -46,7 +43,6 @@ class TestUserModel(TestCase):
                 email='test@example.com',
                 password='testing321'
             )
-
 
     def test_createuser_missing_email(self):
         with self.assertRaises(ValidationError):
@@ -56,7 +52,6 @@ class TestUserModel(TestCase):
                 password='testing321'
             )
 
-
     def test_createuser_invalid_email_format(self):
         with self.assertRaises(ValidationError):
             User.objects.create_user(
@@ -64,7 +59,6 @@ class TestUserModel(TestCase):
                 email='invalidEmail',
                 password='testing321'
             )
-
 
     def test_createuser_missing_password(self):
         with self.assertRaises(ValidationError):
@@ -74,7 +68,6 @@ class TestUserModel(TestCase):
                 password=''
             )
 
-
     def test_createuser_django_default_validation(self):
         with self.assertRaises(ValidationError):
             User.objects.create_user(
@@ -82,7 +75,6 @@ class TestUserModel(TestCase):
                 email='invalidEmail',
                 password='a1'
             )
-
 
     def test_createuser_with_additional_info(self):
         user = User.objects.create_user(
@@ -103,7 +95,6 @@ class TestUserModel(TestCase):
         self.assertFalse(user.is_superuser)
         self.assertTrue(user.is_active)
 
-
     def test_create_user_with_invalid_first_name(self):
         with self.assertRaises(ValidationError):
             User.objects.create_user(
@@ -112,7 +103,6 @@ class TestUserModel(TestCase):
                 password='testing321',
                 first_name='te',
             )
-
 
     def test_create_user_with_invalid_last_name(self):
         with self.assertRaises(ValidationError):
@@ -123,7 +113,6 @@ class TestUserModel(TestCase):
                 last_name='te',
             )
 
-
     def test_create_user_with_invalid_phone_number(self):
         with self.assertRaises(ValidationError):
             User.objects.create_user(
@@ -132,7 +121,6 @@ class TestUserModel(TestCase):
                 password='testing321',
                 phone_number='95',
             )
-
 
     def test_create_valid_superuser(self):
         user = User.objects.create_superuser(
@@ -147,7 +135,6 @@ class TestUserModel(TestCase):
         self.assertTrue(user.is_superuser)
         self.assertTrue(user.is_active)
 
-
     def test_create_superuser_with_false_is_staff(self):
         with self.assertRaises(ValueError):
             User.objects.create_superuser(
@@ -156,8 +143,7 @@ class TestUserModel(TestCase):
                 password='testing321',
                 is_staff=False
             )
-    
-    
+
     def test_create_superuser_with_false_is_active(self):
         with self.assertRaises(ValueError):
             User.objects.create_superuser(

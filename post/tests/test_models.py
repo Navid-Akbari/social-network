@@ -16,7 +16,6 @@ class TestPostModel(TestCase):
             password='testing321'
         )
 
-
     def test_create_post_valid(self):
         post = Post.objects.create(
             user=self.user,
@@ -26,7 +25,6 @@ class TestPostModel(TestCase):
 
         saved_post = Post.objects.get(pk=post.pk)
         self.assertEqual(saved_post.body, 'test post body.')
-
 
     def test_create_post_duplicate(self):
         post = Post.objects.create(
@@ -43,7 +41,6 @@ class TestPostModel(TestCase):
             )
 
         self.assertIn('Post with this User and Created at already exists.', str(context.exception))
-
 
     def test_create_post_body_length_constraint(self):
         with self.assertRaises(ValidationError) as context:

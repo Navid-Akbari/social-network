@@ -15,7 +15,6 @@ class TestUserSerializer(TestCase):
             'phone_number': '1234567890'
         }
 
-
     def test_create_user(self):
         serializer = UserSerializer(data=self.data)
         self.assertTrue(serializer.is_valid())

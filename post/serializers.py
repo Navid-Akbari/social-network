@@ -19,7 +19,6 @@ class PostSerializer(serializers.ModelSerializer):
             'last_edited': {'read_only': True},
         }
 
-
     def create(self, validated_data):
         user = self.context['request'].user
         
@@ -31,7 +30,6 @@ class PostSerializer(serializers.ModelSerializer):
         validated_data['user'] = user
 
         return super().create(validated_data)
-
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)

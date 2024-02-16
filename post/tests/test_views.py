@@ -18,7 +18,6 @@ class TestPostManager(TestCase):
         )
         self.access_token = AccessToken.for_user(user=self.user)
 
-
     def test_post_create_valid(self):
         response = self.client.post(
             self.post_url,
@@ -31,7 +30,6 @@ class TestPostManager(TestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data['user']['id'], 1)
         self.assertEqual(response.data['body'], 'Test post body.')
-
 
     def test_post_create_without_token(self):
         response = self.client.post(
@@ -46,7 +44,6 @@ class TestPostManager(TestCase):
             response.data['user'][0],
             'User must be authenticated and a valid user instance.'
         )
-
 
     def test_post_create_exceed_body_length(self):
         response = self.client.post(

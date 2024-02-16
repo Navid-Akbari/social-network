@@ -37,10 +37,8 @@ class UserAccountManager(
     queryset = User.objects.all()
     serializer_class = UserSerializer
 
-
     def post(self, request, *args, **kwargs):
         return self.create(request, *args, **kwargs)
-
 
     def get(self, request, *args, **kwargs):
         pk = kwargs.get('pk')
@@ -49,7 +47,6 @@ class UserAccountManager(
         
         return self.list(request, *args, **kwargs)
 
-
     def patch(self, request, *args, **kwargs):
         # this method shouldn't change passwords
         if 'password' in request.data:
@@ -57,10 +54,8 @@ class UserAccountManager(
 
         return self.partial_update(request, *args, **kwargs)
 
-
     def delete(self, request, *args, **kwargs):
         return self.destroy(request, *args, **kwargs)
-
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -74,7 +69,6 @@ class UserAccountManager(
 
         return queryset
 
-
     def get_permissions(self):
         if self.request.method == 'POST':
             return [AllowAny()]
@@ -83,13 +77,11 @@ class UserAccountManager(
         elif self.request.method == 'PATCH' or self.request.method == 'DELETE':
             return [IsOwnerOrAdmin()]
 
-
     def get_authenticators(self):
         if self.request.method == 'POST':
             return []
         if any(method in self.request.method for method in ['GET', 'PATCH', 'DELETE']):
             return [JWTAuthentication()]
-
 
     def handle_exception(self, exception):
 

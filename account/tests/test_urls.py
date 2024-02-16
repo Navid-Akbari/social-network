@@ -15,16 +15,13 @@ class TestUrls(SimpleTestCase):
         url = reverse('account:token_obtain_pair')
         self.assertEqual(resolve(url).func.view_class, TokenObtainPairView)
 
-
     def test_tokan_refresh_is_resolved(self):
         url = reverse('account:token_refresh')
         self.assertEqual(resolve(url).func.view_class, TokenRefreshView)
 
-
     def test_list_create_url_is_resolved(self):
         url = reverse('account:users')
         self.assertEqual(resolve(url).func.view_class, views.UserAccountManager)
-
     
     def test_update_delete_url_is_resolved(self):
         url = reverse('account:users_detail', kwargs={'pk': 1})

@@ -23,7 +23,6 @@ class UserSerializer(serializers.ModelSerializer):
             'password': {'write_only': True},
         }
 
-
     def create(self, validated_data):
         password = validated_data.pop('password')
         validated_data['password'] = make_password(password)

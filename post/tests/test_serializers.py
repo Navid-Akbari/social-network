@@ -27,7 +27,6 @@ class TestPostSerializer(TestCase):
         self.assertEqual(post.user.username, self.user.username)
         self.assertEqual(post.body, 'Test post body.')
 
-
     def test_post_serializer_missing_body(self):
         serializer = PostSerializer(data={'user': self.user.pk})
 
@@ -36,7 +35,6 @@ class TestPostSerializer(TestCase):
         errors = format_serializer_errors(serializer.errors)
 
         self.assertEqual(errors, {'body': 'This field is required.'})
-
 
     def test_post_serializer_exceed_body_length(self):
         serializer = PostSerializer(
@@ -56,7 +54,6 @@ class TestPostSerializer(TestCase):
 
         self.assertEqual(errors, {'body': 'Ensure this field has no more than 250 characters.'})
 
-
     def test_post_serializer_missing_user(self):
         serializer = PostSerializer(data={'body': 'Test post body.'})
 
@@ -65,4 +62,3 @@ class TestPostSerializer(TestCase):
         errors = format_serializer_errors(serializer.errors)
 
         self.assertEqual(errors, {'user': 'This field is required.'})
-

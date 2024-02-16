@@ -40,8 +40,6 @@ class UserAccountManagement(TestCase):
         self.test_user_access_token = AccessToken.for_user(user=self.first_test_user)
         self.admin_access_token = AccessToken.for_user(user=self.admin)
 
-
-
     def test_post_valid(self):
         user = {
             'username': 'test2',
@@ -62,7 +60,6 @@ class UserAccountManagement(TestCase):
         self.assertEqual(response.data['email'], 'test2@example.com')
         self.assertTrue(check_password(user['password'], user_from_db.password))
 
-
     def test_post_invalid(self):
         user = {
             'username': '',
@@ -80,7 +77,6 @@ class UserAccountManagement(TestCase):
         response_data = json.loads(response.content)
         self.assertEqual(response_data['username'][0], 'This field may not be blank.')
 
-
     def test_get_with_no_parameter(self):
         response = self.client.get(
             self.list_create_url,
@@ -93,7 +89,6 @@ class UserAccountManagement(TestCase):
         self.assertEqual(response.data[1]['username'], 'test1')
         self.assertEqual(response.data[2]['username'], 'admin')
 
-
     def test_get_with_parameter(self):
         response = self.client.get(
             self.list_create_url + '?username=test',
@@ -103,7 +98,6 @@ class UserAccountManagement(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(len(response.data), 1)
         self.assertEqual(response.data[0]['username'], 'test')
-
 
     def test_patch_valid(self):
         response = self.client.patch(
@@ -117,7 +111,6 @@ class UserAccountManagement(TestCase):
         self.assertEqual(response.data['username'], 'updatedtest')
         self.assertEqual(response.data['email'], 'updatedtest@example.com')
 
-
     def test_patch_invalid_data(self):
         response = self.client.patch(
             self.update_destroy_url,
@@ -128,7 +121,6 @@ class UserAccountManagement(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data['username'][0], 'This field may not be blank.')
-
 
     def test_patch_unauthorized_request(self):
         response = self.client.patch(
@@ -144,8 +136,6 @@ class UserAccountManagement(TestCase):
             response_data['error']['message'],
             'No permission -- see authorization schemes'
         )
-        
-
 
     def test_delete_valid(self):
         response = self.client.delete(
@@ -154,7 +144,6 @@ class UserAccountManagement(TestCase):
         )
 
         self.assertEqual(response.status_code, 204)
-
 
     def test_delete_unauthorized_request(self):
         response = self.client.delete(
@@ -181,7 +170,6 @@ class TestRequestEmailVerification(TestCase):
         self.test_user_access_token = AccessToken.for_user(user=self.user)
         self.uidb64 = urlsafe_base64_encode(force_bytes(self.user.pk))
 
-
     def test_request_email_verification_valid_post(self):
         response = self.client.post(
             self.request_email_verification_url,
@@ -190,7 +178,6 @@ class TestRequestEmailVerification(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['message'], 'An email has been sent.')
-
 
     def test_request_email_verification_already_verified_post(self):
         self.user.email_verified = True
@@ -203,7 +190,6 @@ class TestRequestEmailVerification(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data['error'], 'This email has already been verified.')
-
 
     def test_request_email_verification_has_token(self):
         self.user.verification_token_expiration = timezone.now() + timedelta(minutes=5)
@@ -230,7 +216,6 @@ class TestVerifyEmail(TestCase):
         self.verification_token = generate_verification_token()
         self.uidb64 = urlsafe_base64_encode(force_bytes(self.user.pk))
 
-
     def test_verify_email_valid(self):
         self.user.verification_token = self.verification_token
         self.user.save()
@@ -244,13 +229,11 @@ class TestVerifyEmail(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['message'], 'Email verified.')
 
-
     def test_verify_email_missing_params(self):
         response = self.client.post(self.verify_email_url)
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data['error'], 'Parameters are missing.')
-
 
     def test_verify_email_already_verified(self):
         self.user.email_verified = True
@@ -265,7 +248,6 @@ class TestVerifyEmail(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data['error'], 'This email has already been verified.')
 
-
     def test_verify_email_token_has_expired(self):
         self.user.verification_token_expiration = timezone.now() - timedelta(minutes=10)
         self.user.save()
@@ -279,7 +261,6 @@ class TestVerifyEmail(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data['error'], 'The verification token has expired.')
 
-
     def test_verify_email_wrong_token(self):
         response = self.client.post(
             self.verify_email_url,
@@ -289,7 +270,6 @@ class TestVerifyEmail(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data['error'], 'Invalid Token.')
-
     
     def test_verify_email_bad_uidb64(self):
         response = self.client.post(
@@ -313,7 +293,6 @@ class TestRequestPasswordReset(TestCase):
             email='test@example.com',
             password='testing321'
         )
-
     
     def test_request_password_reset_valid(self):
         response = self.client.post(
@@ -325,13 +304,11 @@ class TestRequestPasswordReset(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['message'], 'A password reset email has been sent.')
 
-    
     def test_request_password_reset_missing_param(self):
         response = self.client.post(self.request_password_reset_url)
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data['error'], 'Email missing.')
-
 
     def test_request_password_reset_throttle(self):
         self.user.verification_token_expiration = timezone.now() + timedelta(minutes=5)
@@ -344,7 +321,6 @@ class TestRequestPasswordReset(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data['error'], 'An Email has been sent recently.')
-
 
     def test_request_password_reset_wrong_email(self):
         response = self.client.post(
@@ -370,7 +346,6 @@ class TestResetPassword(TestCase):
         self.uidb64 = urlsafe_base64_encode(force_bytes(self.user.pk))
         self.access_token = AccessToken.for_user(user=self.user)
 
-
     def test_reset_password_with_email_valid(self):
         self.user.verification_token = self.verification_token
         self.user.save()
@@ -388,7 +363,6 @@ class TestResetPassword(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['message'], 'Password changed successfully.')
 
-
     def test_reset_password_with_email_missing_params(self):
         response = self.client.post(self.reset_password_url)
 
@@ -397,7 +371,6 @@ class TestResetPassword(TestCase):
             response.data['error'],
             'Missing Parameters. (token, uidb64, password1, password2)'
         )
-
 
     def test_reset_password_with_email_mismatched_passwords(self):
         response = self.client.post(
@@ -413,7 +386,6 @@ class TestResetPassword(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data['error'], 'Passwords do not match.')
-
 
     def test_reset_password_with_email_bad_uidb64(self):
         response = self.client.post(
@@ -432,7 +404,6 @@ class TestResetPassword(TestCase):
         self.assertEqual(response.status_code, 404)
         self.assertEqual(response_data['detail'], 'Passwords do not match.')
 
-
     def test_reset_password_with_email_bad_uidb64(self):
         response = self.client.post(
             self.reset_password_url,
@@ -448,7 +419,6 @@ class TestResetPassword(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data['error'], 'Bad uidb64.')
 
-
     def test_reset_password_with_email_bad_input_for_user_lookup(self):
         response = self.client.post(
             self.reset_password_url,
@@ -463,7 +433,6 @@ class TestResetPassword(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data['error'], 'Bad input for user lookup.')
-
 
     def test_reset_password_with_email_expired_token(self):
         self.user.verification_token_expiration = timezone.now() - timedelta(minutes=5)
@@ -501,7 +470,6 @@ class TestResetPassword(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data['error'], 'Invalid Token.')
 
-
     def test_reset_password_with_jwt_token_valid(self):
         response = self.client.post(
             self.reset_password_url,
@@ -516,7 +484,6 @@ class TestResetPassword(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['message'], 'Password changed successfully.')
-
 
     def test_reset_password_with_jwt_token_bad_token(self):
         response = self.client.post(
@@ -533,7 +500,6 @@ class TestResetPassword(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data['error'][0:19], 'Problem with token:')
 
-
     def test_reset_password_with_jwt_token_missing_params(self):
         response = self.client.post(
             self.reset_password_url,
@@ -546,7 +512,6 @@ class TestResetPassword(TestCase):
             response.data['error'], 
             'Missing parameters. (old_password, password1, password2)'
         )
-
 
     def test_reset_password_with_jwt_token_wrong_old_password(self):
         response = self.client.post(
@@ -562,7 +527,6 @@ class TestResetPassword(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data['error'], 'Old password is not correct.')
-
 
     def test_reset_password_with_jwt_token_mismatched_password(self):
         response = self.client.post(

@@ -15,9 +15,9 @@ urlpatterns = [
     path('users/', views.UserAccountManager.as_view(), name='users'),
     path('users/<int:pk>/', views.UserAccountManager.as_view(), name='users_detail'),
     path('request-email-verification/',
-            views.RequestEmailVerification.as_view(),
-            name='request_email_verification'
-        ),
+        views.RequestEmailVerification.as_view(),
+        name='request_email_verification'
+    ),
     path('verify-email/', views.VerifyEmail.as_view(), name='verify_email'),
     path('request-password-reset/', views.RequestPasswordReset.as_view(), name='request_password_reset'),
     path('reset-password/', views.ResetPassword.as_view(), name='reset_password')
