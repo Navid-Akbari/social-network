@@ -9,7 +9,7 @@ User = get_user_model()
 
 
 class PostSerializer(serializers.ModelSerializer):
-    user = serializers.PrimaryKeyRelatedField(read_only=True)
+    user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
 
     class Meta:
         model = Post
@@ -20,14 +20,11 @@ class PostSerializer(serializers.ModelSerializer):
         }
 
     def create(self, validated_data):
-        user = self.context['request'].user
-        
-        if not isinstance(user, User):
-            raise serializers.ValidationError(
-                {'user': ['User must be authenticated and a valid user instance.']}
-            )
 
-        validated_data['user'] = user
+        if len(validated_data['body']) < 5:
+            raise serializers.ValidationError(
+                {'body': ['Body length cannot be less than 5.']}
+            )
 
         return super().create(validated_data)
 

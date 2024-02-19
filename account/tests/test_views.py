@@ -16,7 +16,7 @@ from account.utils import generate_verification_token
 User = get_user_model()
 
 
-class UserAccountManagement(TestCase):
+class TestUserAccountManager(TestCase):
 
     def setUp(self):
         self.client = Client()
@@ -96,7 +96,7 @@ class UserAccountManagement(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(len(response.data), 1)
+        self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]['username'], 'test')
 
     def test_patch_valid(self):

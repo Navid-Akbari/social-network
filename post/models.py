@@ -12,7 +12,7 @@ class Post(models.Model):
     last_edited = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = [['user', 'created_at']]
+        unique_together = [['user', 'created_at', 'body']]
 
     def save(self, *args, **kwargs):
         try:

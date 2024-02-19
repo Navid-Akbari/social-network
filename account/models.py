@@ -10,7 +10,7 @@ from .validators import USERNAME_VALIDATOR, PHONE_NUMBER_VALIDATOR, NAME_VALIDAT
 class CustomUserManager(BaseUserManager):
 
     def create_user(self, username, email, password=None, **extra_fields):
-       
+
         user = self.model(
             email = self.normalize_email(email),
             username = username,
@@ -23,8 +23,7 @@ class CustomUserManager(BaseUserManager):
         user.set_password(password)
         user.save(using=self._db)
         return user
-    
-    
+
     def create_superuser(self, username, email, password=None, **extra_fields):
 
         extra_fields.setdefault('is_staff', True)
@@ -63,17 +62,16 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
 
-    
     def save(self, *args, **kwargs):
         try:
             self.full_clean()
 
             if self.first_name:
                 self.first_name = self.first_name.capitalize()
-            
+
             if self.last_name:
                 self.last_name = self.last_name.capitalize()
-                
+
             super(CustomUser, self).save(*args, **kwargs)
         except utils.IntegrityError as error:
             raise ValidationError(f'error: {error}')

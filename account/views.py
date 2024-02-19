@@ -6,11 +6,20 @@ from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import force_str
 
 import jwt
-from rest_framework import status, generics, mixins
+from rest_framework import status
 from rest_framework.decorators import APIView
+from rest_framework.generics import GenericAPIView
+from rest_framework.mixins import (
+    CreateModelMixin,
+    ListModelMixin,
+    RetrieveModelMixin,
+    UpdateModelMixin,
+    DestroyModelMixin
+)
 from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from django_filters.rest_framework import DjangoFilterBackend
 
 from .permissions import IsOwnerOrAdmin
 from .serializers import UserSerializer
@@ -26,16 +35,18 @@ User = get_user_model()
 
 
 class UserAccountManager(
-        mixins.CreateModelMixin,
-        mixins.ListModelMixin,
-        mixins.RetrieveModelMixin,
-        mixins.UpdateModelMixin,
-        mixins.DestroyModelMixin,
-        generics.GenericAPIView
+        CreateModelMixin,
+        ListModelMixin,
+        RetrieveModelMixin,
+        UpdateModelMixin,
+        DestroyModelMixin,
+        GenericAPIView
     ):
 
     queryset = User.objects.all()
     serializer_class = UserSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['username', 'first_name', 'last_name']
 
     def post(self, request, *args, **kwargs):
         return self.create(request, *args, **kwargs)
@@ -56,18 +67,6 @@ class UserAccountManager(
 
     def delete(self, request, *args, **kwargs):
         return self.destroy(request, *args, **kwargs)
-
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        filters = self.request.query_params
-
-        try:
-            for key, value in filters.items():
-                queryset = queryset.filter(**{key: value})
-        except Exception:
-            return Response({'message': 'Invalid query parameters.'})
-
-        return queryset
 
     def get_permissions(self):
         if self.request.method == 'POST':

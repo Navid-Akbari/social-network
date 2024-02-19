@@ -40,7 +40,7 @@ class TestPostModel(TestCase):
                 created_at=post.created_at
             )
 
-        self.assertIn('Post with this User and Created at already exists.', str(context.exception))
+        self.assertIn('Post with this User, Created at and Body already exists.', str(context.exception))
 
     def test_create_post_body_length_constraint(self):
         with self.assertRaises(ValidationError) as context:
