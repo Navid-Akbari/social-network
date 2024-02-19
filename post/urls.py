@@ -6,5 +6,5 @@ app_name = 'post'
 
 urlpatterns = [
     path('post/', views.PostManager.as_view(), name='posts'),
-    path('users/<int:pk>/', views.PostManager.as_view(), name='posts_detail'),
+    path('post/<int:pk>/', views.PostManager.as_view(), name='posts_detail'),
 ]

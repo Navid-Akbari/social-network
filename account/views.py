@@ -47,6 +47,8 @@ class UserAccountManager(
     serializer_class = UserSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['username', 'first_name', 'last_name']
+    lookup_field = 'pk'
+    lookup_url_kwarg = 'pk'
 
     def post(self, request, *args, **kwargs):
         return self.create(request, *args, **kwargs)

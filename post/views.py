@@ -10,7 +10,6 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from django_filters.rest_framework import DjangoFilterBackend
 
 from account.permissions import IsOwnerOrAdmin
 from .serializers import PostSerializer
@@ -29,6 +28,8 @@ class PostManager(
     filter_backends = [SearchFilter]
     search_fields = ['user__username']
     pagination_class = PageNumberPagination
+    lookup_field = 'pk'
+    lookup_url_kwarg = 'pk'
 
     def post(self, request, *args, **kwargs):
         return self.create(request, *args, **kwargs)

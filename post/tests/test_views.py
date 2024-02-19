@@ -112,3 +112,23 @@ class TestPostManager(TestCase):
             response.data['results'][0]['user']['username'],
             'test1'
         )
+
+    def test_post_manager_get_detail_valid(self):
+        response = self.client.get(
+            reverse('post:posts_detail', kwargs={'pk': 1}),
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['user']['username'], 'test1')
+        self.assertEqual(response.data['user']['email'], 'test1@example.com')
+        self.assertEqual(response.data['body'], 'Test post body.')
+
+    def test_post_manager_get_detail_invalid(self):
+        response = self.client.get(
+            reverse('post:posts_detail', kwargs={'pk': 22}),
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}'
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.data['detail'], 'Not found.')

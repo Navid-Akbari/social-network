@@ -13,7 +13,7 @@ class PostSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Post
-        fields = ['user', 'body', 'created_at', 'last_edited']
+        fields = ['id', 'user', 'body', 'created_at', 'last_edited']
         extra_kwargs = {
             'created_at': {'read_only': True},
             'last_edited': {'read_only': True},

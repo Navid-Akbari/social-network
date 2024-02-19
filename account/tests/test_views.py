@@ -21,13 +21,12 @@ class TestUserAccountManager(TestCase):
     def setUp(self):
         self.client = Client()
         self.list_create_url = reverse('account:users')
-        self.update_destroy_url = reverse('account:users_detail', args=[1])
         self.first_test_user = User.objects.create_user(
             username='test',
             email='test@example.com',
             password='testing321'
         )
-        User.objects.create_user(
+        self.second_test_user = User.objects.create_user(
             username='test1',
             email='test1@example.com',
             password='testing321'
@@ -37,7 +36,12 @@ class TestUserAccountManager(TestCase):
             email='admin@example.com',
             password='testing321'
         )
+        self.update_destroy_url = reverse(
+            'account:users_detail',
+            kwargs={'pk':self.second_test_user.pk}
+        )
         self.test_user_access_token = AccessToken.for_user(user=self.first_test_user)
+        self.second_test_user_access_token = AccessToken.for_user(user=self.second_test_user)
         self.admin_access_token = AccessToken.for_user(user=self.admin)
 
     def test_post_valid(self):
@@ -103,19 +107,20 @@ class TestUserAccountManager(TestCase):
         response = self.client.patch(
             self.update_destroy_url,
             data={'username': 'updatedtest', 'email': 'updatedtest@example.com'},
-            HTTP_AUTHORIZATION=f'Bearer {self.test_user_access_token}',
+            HTTP_AUTHORIZATION=f'Bearer {self.second_test_user_access_token}',
             content_type='application/json'
         )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['username'], 'updatedtest')
         self.assertEqual(response.data['email'], 'updatedtest@example.com')
+        self.assertEqual(response.data['id'], 2)
 
     def test_patch_invalid_data(self):
         response = self.client.patch(
             self.update_destroy_url,
             data={'username': '', 'email': ''},
-            HTTP_AUTHORIZATION=f'Bearer {self.test_user_access_token}',
+            HTTP_AUTHORIZATION=f'Bearer {self.second_test_user_access_token}',
             content_type='application/json'
         )
 
@@ -140,7 +145,7 @@ class TestUserAccountManager(TestCase):
     def test_delete_valid(self):
         response = self.client.delete(
             self.update_destroy_url,
-            HTTP_AUTHORIZATION=f'Bearer {self.test_user_access_token}',
+            HTTP_AUTHORIZATION=f'Bearer {self.second_test_user_access_token}',
         )
 
         self.assertEqual(response.status_code, 204)
