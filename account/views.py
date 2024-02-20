@@ -21,7 +21,7 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from django_filters.rest_framework import DjangoFilterBackend
 
-from .permissions import IsOwnerOrAdmin
+from .permissions import IsTheSameUserOrAdmin
 from .serializers import UserSerializer
 from .utils import (
     generate_verification_token,
@@ -76,7 +76,7 @@ class UserAccountManager(
         elif self.request.method == 'GET':
             return [IsAdminUser()]
         elif self.request.method == 'PATCH' or self.request.method == 'DELETE':
-            return [IsOwnerOrAdmin()]
+            return [IsTheSameUserOrAdmin()]
 
     def get_authenticators(self):
         if self.request.method == 'POST':

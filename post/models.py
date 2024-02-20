@@ -6,10 +6,10 @@ User = get_user_model()
 
 
 class Post(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    body = models.CharField(max_length=250)
-    created_at = models.DateTimeField(auto_now_add=True)
-    last_edited = models.DateTimeField(auto_now=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, )
+    body = models.CharField(max_length=250, blank=False)
+    created_at = models.DateTimeField(auto_now_add=True, blank=False)
+    last_edited = models.DateTimeField(auto_now=True, blank=False)
 
     class Meta:
         unique_together = [['user', 'created_at', 'body']]

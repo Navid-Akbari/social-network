@@ -1,46 +1,28 @@
 from rest_framework import status
 from rest_framework.filters import SearchFilter
-from rest_framework.generics import GenericAPIView
-from rest_framework.mixins import (
-    CreateModelMixin,
-    ListModelMixin,
-    RetrieveModelMixin
-)
+from rest_framework.generics import RetrieveUpdateDestroyAPIView, ListCreateAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from account.permissions import IsOwnerOrAdmin
+from .permissions import IsOwnerOrAdmin
 from .serializers import PostSerializer
 from .models import Post
 
 
-class PostManager(
-    CreateModelMixin,
-    ListModelMixin,
-    RetrieveModelMixin,
-    GenericAPIView
-):
-    authentication_classes = [JWTAuthentication]
-    serializer_class = PostSerializer
+class PostList(ListCreateAPIView):
     queryset = Post.objects.all().order_by('created_at')
-    filter_backends = [SearchFilter]
-    search_fields = ['user__username']
+    serializer_class = PostSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
     pagination_class = PageNumberPagination
-    lookup_field = 'pk'
-    lookup_url_kwarg = 'pk'
+    filter_backends = [SearchFilter]
+    search_fields = ['user__username', 'user__id']
 
-    def post(self, request, *args, **kwargs):
-        return self.create(request, *args, **kwargs)
-
-    def get(self, request, *args, **kwargs):
-        pk = kwargs.get('pk')
-        if pk is not None:
-            return self.retrieve(request, *args, **kwargs)
-
-        return self.list(request, *args, **kwargs)
-
+    # Here I have overriden the create method in order to add a user the serializer
+    # receives since right now the only way to authenticate a user is through
+    # JWT tokens, therefore the request does not have access to user's information.
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(
             data={
@@ -53,8 +35,11 @@ class PostManager(
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
-    def get_permissions(self):
-        if self.request.method == 'POST' or self.request.method == 'GET':
-            return [IsAuthenticated()]
-        elif self.request.method == 'PATCH' or self.request.method == 'DELETE':
-            return [IsOwnerOrAdmin()]
+
+class PostDetail(RetrieveUpdateDestroyAPIView):
+    queryset = Post.objects.all()
+    serializer_class = PostSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsOwnerOrAdmin]
+    lookup_field = 'pk'
+    lookup_url_kwarg = 'pk'

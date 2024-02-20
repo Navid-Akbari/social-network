@@ -19,15 +19,6 @@ class PostSerializer(serializers.ModelSerializer):
             'last_edited': {'read_only': True},
         }
 
-    def create(self, validated_data):
-
-        if len(validated_data['body']) < 5:
-            raise serializers.ValidationError(
-                {'body': ['Body length cannot be less than 5.']}
-            )
-
-        return super().create(validated_data)
-
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         representation['user'] = UserSerializer(instance.user).data
