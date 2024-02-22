@@ -20,9 +20,6 @@ class PostList(ListCreateAPIView):
     filter_backends = [SearchFilter]
     search_fields = ['user__username', 'user__id']
 
-    # Here I have overriden the create method in order to add a user the serializer
-    # receives since right now the only way to authenticate a user is through
-    # JWT tokens, therefore the request does not have access to user's information.
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(
             data={

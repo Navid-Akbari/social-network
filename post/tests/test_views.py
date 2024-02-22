@@ -47,6 +47,7 @@ class TestPostList(TestCase):
             content_type='application/json'
         )
 
+        print(response.data)
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data['user']['id'], 1)
         self.assertEqual(response.data['body'], 'Test post body.')
