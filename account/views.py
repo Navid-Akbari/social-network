@@ -8,13 +8,10 @@ from django.utils.encoding import force_str
 import jwt
 from rest_framework import status
 from rest_framework.decorators import APIView
-from rest_framework.generics import GenericAPIView
-from rest_framework.mixins import (
-    CreateModelMixin,
-    ListModelMixin,
-    RetrieveModelMixin,
-    UpdateModelMixin,
-    DestroyModelMixin
+from rest_framework.generics import (
+    ListCreateAPIView,
+    RetrieveUpdateDestroyAPIView,
+    GenericAPIView
 )
 from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.response import Response
@@ -34,64 +31,62 @@ from .utils import (
 User = get_user_model()
 
 
-class UserAccountManager(
-        CreateModelMixin,
-        ListModelMixin,
-        RetrieveModelMixin,
-        UpdateModelMixin,
-        DestroyModelMixin,
-        GenericAPIView
-    ):
-
+class UserList(ListCreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['username', 'first_name', 'last_name']
-    lookup_field = 'pk'
-    lookup_url_kwarg = 'pk'
-
-    def post(self, request, *args, **kwargs):
-        return self.create(request, *args, **kwargs)
-
-    def get(self, request, *args, **kwargs):
-        pk = kwargs.get('pk')
-        if pk is not None:
-            return self.retrieve(request, *args, **kwargs)
-        
-        return self.list(request, *args, **kwargs)
-
-    def patch(self, request, *args, **kwargs):
-        # this method shouldn't change passwords
-        if 'password' in request.data:
-            request.data['password'].pop()
-
-        return self.partial_update(request, *args, **kwargs)
-
-    def delete(self, request, *args, **kwargs):
-        return self.destroy(request, *args, **kwargs)
 
     def get_permissions(self):
         if self.request.method == 'POST':
             return [AllowAny()]
         elif self.request.method == 'GET':
             return [IsAdminUser()]
-        elif self.request.method == 'PATCH' or self.request.method == 'DELETE':
-            return [IsTheSameUserOrAdmin()]
-
+    
     def get_authenticators(self):
         if self.request.method == 'POST':
             return []
-        if any(method in self.request.method for method in ['GET', 'PATCH', 'DELETE']):
+        if self.request.method == 'GET':
             return [JWTAuthentication()]
 
-    def handle_exception(self, exception):
 
-        if isinstance(exception, AssertionError):
+class UserDetail(RetrieveUpdateDestroyAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    authentication_classes = [JWTAuthentication]
+    lookup_field = 'pk'
+    lookup_url_kwarg = 'pk'
+
+    def patch(self, request, *args, **kwargs):
+        # this method shouldn't change passwords
+        if 'password' in request.data:
+            request.data.pop('password')
+        
+
+        return self.partial_update(request, *args, **kwargs)
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [IsAdminUser()]
+        if any(method in self.request.method for method in ['PATCH', 'DELETE']):
+            return [IsTheSameUserOrAdmin()]
+        return [AllowAny()]
+
+
+class UserDetailWithToken(GenericAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    authentication_classes = [JWTAuthentication]
+
+    def get(self, request, *args, **kwargs):
+        if request.user.is_authenticated:
+            serializer = self.serializer_class(request.user)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        else:
             return Response(
-                {'message': 'Invalid url parameter.'},
-                status=status.HTTP_400_BAD_REQUEST
+                {'error': 'Authorization credentials were not provided.'},
+                status=status.HTTP_401_UNAUTHORIZED
             )
-        return super().handle_exception(exception)
 
 
 class RequestEmailVerification(APIView):

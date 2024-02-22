@@ -16,7 +16,7 @@ from account.utils import generate_verification_token
 User = get_user_model()
 
 
-class TestUserAccountManager(TestCase):
+class TestUserList(TestCase):
 
     def setUp(self):
         self.client = Client()
@@ -36,50 +36,40 @@ class TestUserAccountManager(TestCase):
             email='admin@example.com',
             password='testing321'
         )
-        self.update_destroy_url = reverse(
-            'account:users_detail',
-            kwargs={'pk':self.second_test_user.pk}
-        )
         self.test_user_access_token = AccessToken.for_user(user=self.first_test_user)
-        self.second_test_user_access_token = AccessToken.for_user(user=self.second_test_user)
         self.admin_access_token = AccessToken.for_user(user=self.admin)
 
     def test_post_valid(self):
-        user = {
-            'username': 'test2',
-            'email': 'test2@example.com',
-            'password': 'testing321'
-        }
-
         response = self.client.post(
             self.list_create_url, 
-            json.dumps(user), 
+            data={
+                'username': 'test2',
+                'email': 'test2@example.com',
+                'password': 'testing321'
+            }, 
             content_type='application/json'
         )
 
-        user_from_db = User.objects.get(username='test2')
+        user = User.objects.get(username='test2')
 
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data['username'], 'test2')
         self.assertEqual(response.data['email'], 'test2@example.com')
-        self.assertTrue(check_password(user['password'], user_from_db.password))
+        self.assertTrue(check_password('testing321', user.password))
 
     def test_post_invalid(self):
-        user = {
-            'username': '',
-            'email': 'test2@example.com',
-            'password': 'testing321'
-        }
-
         response = self.client.post(
             self.list_create_url, 
-            json.dumps(user), 
+            data={
+                'username': '',
+                'email': 'test2@example.com',
+                'password': 'testing321'
+            }, 
             content_type='application/json'
         )
 
         self.assertTrue(response.status_code, 400)
-        response_data = json.loads(response.content)
-        self.assertEqual(response_data['username'][0], 'This field may not be blank.')
+        self.assertEqual(response.data['username'][0], 'This field may not be blank.')
 
     def test_get_with_no_parameter(self):
         response = self.client.get(
@@ -103,24 +93,96 @@ class TestUserAccountManager(TestCase):
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]['username'], 'test')
 
+    def test_get_unauthenticated_request(self):
+        response = self.client.get(self.list_create_url)
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(
+            response.data['detail'],
+            'Authentication credentials were not provided.'
+        )
+
+    def test_get_unauthenticated_request(self):
+        response = self.client.get(
+            self.list_create_url,
+            HTTP_AUTHORIZATION=f'Bearer {self.test_user_access_token}',
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(
+            response.data['detail'],
+            'You do not have permission to perform this action.'
+        )
+
+
+class TestUserDetail(TestCase):
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username='test',
+            email='test@example.com',
+            password='testing321'
+        )
+        self.access_token = AccessToken.for_user(user=self.user)
+        self.admin = User.objects.create_superuser(
+            username='admin',
+            email='admin@example.com',
+            password='testing321'
+        )
+        self.admin_access_token = AccessToken.for_user(user=self.admin)
+
+    def test_get_valid(self):
+        response = self.client.get(
+            reverse('account:users_detail', kwargs={'pk': 1}),
+            HTTP_AUTHORIZATION=f'Bearer {self.admin_access_token}'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['username'], 'test')
+        self.assertEqual(response.data['id'], 1)
+
+    def test_get_invalid(self):
+        response = self.client.get(
+            reverse('account:users_detail', kwargs={'pk': 1}),
+        )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(
+            response.data['detail'],
+            'Authentication credentials were not provided.'
+        )
+    
+    def test_get_not_found(self):
+        response = self.client.get(
+            reverse('account:users_detail', kwargs={'pk': 3}),
+            HTTP_AUTHORIZATION=f'Bearer {self.admin_access_token}'
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(
+            response.data['detail'],
+            'Not found.'
+        )
+
     def test_patch_valid(self):
         response = self.client.patch(
-            self.update_destroy_url,
+            reverse('account:users_detail', kwargs={'pk': 1}),
             data={'username': 'updatedtest', 'email': 'updatedtest@example.com'},
-            HTTP_AUTHORIZATION=f'Bearer {self.second_test_user_access_token}',
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
             content_type='application/json'
         )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['username'], 'updatedtest')
         self.assertEqual(response.data['email'], 'updatedtest@example.com')
-        self.assertEqual(response.data['id'], 2)
+        self.assertEqual(response.data['id'], 1)
 
     def test_patch_invalid_data(self):
         response = self.client.patch(
-            self.update_destroy_url,
+            reverse('account:users_detail', kwargs={'pk': 1}),
             data={'username': '', 'email': ''},
-            HTTP_AUTHORIZATION=f'Bearer {self.second_test_user_access_token}',
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
             content_type='application/json'
         )
 
@@ -129,13 +191,12 @@ class TestUserAccountManager(TestCase):
 
     def test_patch_unauthorized_request(self):
         response = self.client.patch(
-            self.update_destroy_url,
+            reverse('account:users_detail', kwargs={'pk': 1}),
             data={'username': 'updatedtest', 'email': 'updatedtest@example.com'},
             content_type='application/json'
         )
 
         self.assertEqual(response.status_code, 401)
-
         response_data = json.loads(response.content)
         self.assertEqual(
             response_data['error']['message'],
@@ -144,21 +205,53 @@ class TestUserAccountManager(TestCase):
 
     def test_delete_valid(self):
         response = self.client.delete(
-            self.update_destroy_url,
-            HTTP_AUTHORIZATION=f'Bearer {self.second_test_user_access_token}',
+            reverse('account:users_detail', kwargs={'pk': 1}),
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
         )
 
         self.assertEqual(response.status_code, 204)
-
+    
     def test_delete_unauthorized_request(self):
         response = self.client.delete(
-            self.update_destroy_url,
+            reverse('account:users_detail', kwargs={'pk': 1}),
         )
 
         self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.data['detail'], 'Authentication credentials were not provided.')
 
-        response_data = json.loads(response.content)
-        self.assertEqual(response_data['detail'], 'Authentication credentials were not provided.')
+
+class TestUserDetailWithToken(TestCase):
+
+    def setUp(self):
+        self.client = Client()
+        self.users_detail_token_url = reverse('account:users_detail_token')
+        self.user = User.objects.create(
+            username='test',
+            email='test@example.com',
+            password='testing321'
+        )
+        self.access_token = AccessToken.for_user(user=self.user)
+
+    def test_get_valid(self):
+        response = self.client.get(
+            self.users_detail_token_url,
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['username'], self.user.username)
+        self.assertEqual(response.data['id'], self.user.pk)
+    
+    def test_get_invalid(self):
+        response = self.client.get(
+            self.users_detail_token_url,
+        )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(
+            response.data['error'],
+            'Authorization credentials were not provided.'
+        )
 
 
 class TestRequestEmailVerification(TestCase):
@@ -275,7 +368,7 @@ class TestVerifyEmail(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data['error'], 'Invalid Token.')
-    
+
     def test_verify_email_bad_uidb64(self):
         response = self.client.post(
             self.verify_email_url,
@@ -288,7 +381,7 @@ class TestVerifyEmail(TestCase):
 
 
 class TestRequestPasswordReset(TestCase):
-    
+
     def setUp(self):
         settings.EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
         self.request_password_reset_url = reverse('account:request_password_reset')
@@ -298,7 +391,7 @@ class TestRequestPasswordReset(TestCase):
             email='test@example.com',
             password='testing321'
         )
-    
+
     def test_request_password_reset_valid(self):
         response = self.client.post(
             self.request_password_reset_url,
