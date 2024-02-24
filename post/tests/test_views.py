@@ -5,7 +5,7 @@ from django.urls import reverse
 from rest_framework_simplejwt.tokens import AccessToken
 import json
 
-from post.models import Post
+from post.models import Post, Like
 
 User = get_user_model()
 
@@ -47,7 +47,6 @@ class TestPostList(TestCase):
             content_type='application/json'
         )
 
-        print(response.data)
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data['user']['id'], 1)
         self.assertEqual(response.data['body'], 'Test post body.')
@@ -124,6 +123,7 @@ class TestPostList(TestCase):
         )
         self.assertEqual(len(response.data['results']), 1)
         self.assertEqual(response.data['results'][0]['body'], 'User1 test post body.')
+
 
 class TestPostDetail(TestCase):
     
@@ -236,3 +236,129 @@ class TestPostDetail(TestCase):
 
         self.assertEqual(response.status_code, 404)
         self.assertEqual(response.data['detail'], 'Not found.')
+
+
+class TestLikeAPI(TestCase):
+    
+    def setUp(self):
+        self.client = Client()
+        self.like_api_url = reverse('post:like')
+        self.user = User.objects.create(
+            username='test',
+            email='test@example.com',
+            password='testing321'
+        )
+        self.access_token = AccessToken.for_user(user=self.user)
+        self.post = Post.objects.create(
+            user=self.user,
+            body='Test post body.'
+        )
+        self.user1 = User.objects.create(
+            username='test1',
+            email='test1@example.com',
+            password='testing321'
+        )
+        self.user1_access_token = AccessToken.for_user(user=self.user1)
+        self.post1 = Post.objects.create(
+            user=self.user1,
+            body='Test post body.'
+        )
+        self.like = Like.objects.create(
+            user=self.user1,
+            post=self.post1,
+            is_like=False
+        )
+
+    def test_post_valid(self):
+        response = self.client.post(
+            self.like_api_url,
+            data={
+                'post': 1,
+                'is_like': True
+            },
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 201)
+        like_Instance = Like.objects.get(user=self.user)
+        self.assertEqual(like_Instance.user.pk, 1)
+        self.assertEqual(like_Instance.post.pk, 1)
+        self.assertTrue(like_Instance.is_like)
+
+    def test_post_bad_is_like_data(self):
+        response = self.client.post(
+            self.like_api_url,
+            data={
+                'post': 1,
+                'is_like': 'badData'
+            },
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['is_like'][0], 'Must be a valid boolean.')
+
+    def test_post_bad_post_data(self):
+        response = self.client.post(
+            self.like_api_url,
+            data={
+                'post': 'badData',
+                'is_like': True
+            },
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.data['post'][0],
+            'Incorrect type. Expected pk value, received str.'
+        )
+
+    def test_post_unauthenticated(self):
+        response = self.client.post(
+            self.like_api_url,
+            data={
+                'post': 'badData',
+                'is_like': True
+            },
+            content_type='application/json'
+        )
+
+        response_data = json.loads(response.content)
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(
+            response_data['error']['message'],
+            'No permission -- see authorization schemes'
+        )
+
+    def test_post_delete_instance_if_duplicate(self):
+        response = self.client.post(
+            self.like_api_url,
+            data={
+                'post': 2,
+                'is_like': False
+            },
+            HTTP_AUTHORIZATION=f'Bearer {self.user1_access_token}',
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(response.data['message'], 'Like removed successfully.')
+
+    def test_post_update_instance_if_duplicate(self):
+        response = self.client.post(
+            self.like_api_url,
+            data={
+                'post': 2,
+                'is_like': True
+            },
+            HTTP_AUTHORIZATION=f'Bearer {self.user1_access_token}',
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data['is_like'], True)

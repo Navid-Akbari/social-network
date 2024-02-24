@@ -21,6 +21,7 @@ class Post(models.Model):
         except utils.IntegrityError as error:
             raise ValidationError(f'error: {error}')
 
+
 class Like(models.Model):
     is_like = models.BooleanField(blank=False, null=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE)

@@ -124,33 +124,6 @@ class TestLikeSerializer(TestCase):
         self.assertEqual(Like.user.pk, 2)
         self.assertEqual(Like.user.username, 'test1')
 
-    def test_like_serializer_deleting_existing_instance_upon_duplicated_request(self):
-        serializer = LikeSerializer(
-            data={
-                'user': self.user.pk,
-                'post': self.post.pk,
-                'is_like': True
-            }
-        )
-
-        self.assertTrue(serializer.is_valid())
-        like = serializer.save()
-        self.assertEqual(like['message'], 'Like removed successfully.')
-
-    def test_like_serializer_updating_existing_instance_upon_duplicated_request(self):
-        serializer = LikeSerializer(
-            data={
-                'user': self.user.pk,
-                'post': self.post.pk,
-                'is_like': False
-            }
-        )
-
-        self.assertTrue(self.like_instance.is_like)
-        self.assertTrue(serializer.is_valid())
-        like = serializer.save()
-        self.assertFalse(like.is_like)
-
     def test_like_serializer_invalid(self):
         serializer = LikeSerializer(
             data={
