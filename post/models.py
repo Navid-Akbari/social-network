@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.core.validators import MaxLengthValidator
 from django.core.exceptions import ValidationError
 from django.db import models, utils
 
@@ -36,5 +37,19 @@ class Like(models.Model):
         try:
             self.full_clean()
             super(Like, self).save(*args, **kwargs)
+        except utils.IntegrityError as error:
+            raise ValidationError(f'error: {error}')
+
+
+class Comment(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    post = models.ForeignKey(Post, on_delete=models.CASCADE)
+    body = models.TextField(blank=False, validators=[MaxLengthValidator(250)])
+    created_at = models.DateTimeField(auto_now_add=True, blank=False)
+
+    def save(self, *args, **kwargs):
+        try:
+            self.full_clean()
+            super(Comment, self).save(*args, **kwargs)
         except utils.IntegrityError as error:
             raise ValidationError(f'error: {error}')

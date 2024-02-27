@@ -2,7 +2,7 @@ from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from post.models import Post, Like
+from post.models import Post, Like, Comment
 
 User = get_user_model()
 
@@ -86,3 +86,58 @@ class TestLikeModel(TestCase):
             'Like with this Post and User already exists.',
             str(context.exception)
         )
+
+
+class TestCommentModel(TestCase):
+
+    def setUp(self):
+        self.user = User.objects.create(
+            username='test',
+            email='test@gmail.com',
+            password='testing321'
+        )
+        self.post = Post.objects.create(
+            user=self.user,
+            body='Test post body.'
+        )
+
+    def test_create_comment_valid(self):
+        comment = Comment.objects.create(
+            user=self.user,
+            post=self.post,
+            body='Test comment.'
+        )
+
+        saved_comment = Comment.objects.get(pk=comment.pk)
+        self.assertEqual(saved_comment.user, self.user)
+        self.assertEqual(saved_comment.post, self.post)
+        self.assertEqual(saved_comment.body, 'Test comment.')
+
+    def test_create_comment_invalid_body(self):
+        with self.assertRaises(ValidationError):
+            Comment.objects.create(
+                user=self.user,
+                post=self.post,
+                body=''
+            )
+    
+    def test_create_comment_empty_body(self):
+        with self.assertRaises(ValidationError):
+            Comment.objects.create(
+                user=self.user,
+                post=self.post,
+                body=''
+            )
+    
+    def test_create_comment_invalid_body_length(self):
+        with self.assertRaises(ValidationError):
+            Comment.objects.create(
+                user=self.user,
+                post=self.post,
+                body='abcdefghijabcdefghijabcdefghijabcdefghijabcdefghij'
+                'abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij'
+                'abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij'
+                'abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij'
+                'abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij'
+                'abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij'
+            )
