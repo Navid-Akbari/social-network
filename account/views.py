@@ -23,15 +23,15 @@ from .serializers import UserSerializer
 from .utils import (
     generate_verification_token,
     send_email_verification_email,
-    send_change_password_email,
-    token_expiration_time,
+    send_reset_password_email,
+    generate_token_expiration_time,
     token_has_expired
 )
 
 User = get_user_model()
 
 
-class UserList(ListCreateAPIView):
+class UserListCreate(ListCreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     filter_backends = [DjangoFilterBackend]
@@ -50,7 +50,7 @@ class UserList(ListCreateAPIView):
             return [JWTAuthentication()]
 
 
-class UserDetail(RetrieveUpdateDestroyAPIView):
+class UserRetrieveUpdateDestroy(RetrieveUpdateDestroyAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     authentication_classes = [JWTAuthentication]
@@ -73,7 +73,7 @@ class UserDetail(RetrieveUpdateDestroyAPIView):
         return [AllowAny()]
 
 
-class UserDetailWithToken(GenericAPIView):
+class UserRetrieveWithToken(GenericAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     authentication_classes = [JWTAuthentication]
@@ -111,7 +111,7 @@ class RequestEmailVerification(APIView):
                 )
 
         user.verification_token = generate_verification_token()
-        user.verification_token_expiration = token_expiration_time(minutes=10)
+        user.verification_token_expiration = generate_token_expiration_time(minutes=10)
         try:    
             user.save()
         except Exception:
@@ -201,14 +201,14 @@ class RequestPasswordReset(APIView):
                 )
 
         user.verification_token = generate_verification_token(length=32)
-        user.verification_token_expiration = token_expiration_time(minutes=5)
+        user.verification_token_expiration = generate_token_expiration_time(minutes=5)
 
         try:
             user.save()
         except Exception:
             return Response({'error': 'There was a problem updating the user.'})
         
-        send_change_password_email(request, user)
+        send_reset_password_email(request, user)
 
         return Response(
             {'message': 'A password reset email has been sent.'},

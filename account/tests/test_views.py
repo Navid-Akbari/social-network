@@ -16,7 +16,7 @@ from account.utils import generate_verification_token
 User = get_user_model()
 
 
-class TestUserList(TestCase):
+class TestUserListCreate(TestCase):
 
     def setUp(self):
         self.client = Client()
@@ -115,7 +115,7 @@ class TestUserList(TestCase):
         )
 
 
-class TestUserDetail(TestCase):
+class TestUserRetrieveUpdateDestroy(TestCase):
 
     def setUp(self):
         self.client = Client()
@@ -220,7 +220,7 @@ class TestUserDetail(TestCase):
         self.assertEqual(response.data['detail'], 'Authentication credentials were not provided.')
 
 
-class TestUserDetailWithToken(TestCase):
+class TestUserRetrieveWithToken(TestCase):
 
     def setUp(self):
         self.client = Client()

@@ -26,7 +26,7 @@ def send_email_verification_email(request, user):
     email.send()
 
 
-def send_change_password_email(request, user):
+def send_reset_password_email(request, user):
     absolute_url = (
         'http://' + get_current_site(request).domain
         + '/?uidb64='
@@ -53,7 +53,7 @@ def generate_verification_token(length=32):
     return token
 
 
-def token_expiration_time(minutes=5):
+def generate_token_expiration_time(minutes=5):
     return timezone.now() + timedelta(minutes=minutes)
 
 

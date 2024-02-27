@@ -8,12 +8,12 @@ class TestUrls(SimpleTestCase):
 
     def test_post_list_url_is_resolved(self):
         url = reverse('post:posts')
-        self.assertEqual(resolve(url).func.view_class, views.PostList)
+        self.assertEqual(resolve(url).func.view_class, views.PostListCreate)
 
     def test_tokan_refresh_is_resolved(self):
         url = reverse('post:posts_detail', kwargs={'pk': 1})
-        self.assertEqual(resolve(url).func.view_class, views.PostDetail)
+        self.assertEqual(resolve(url).func.view_class, views.PostRetrieveUpdateDestroy)
 
     def test_list_create_url_is_resolved(self):
-        url = reverse('post:like')
-        self.assertEqual(resolve(url).func.view_class, views.LikeAPI)
+        url = reverse('post:likes')
+        self.assertEqual(resolve(url).func.view_class, views.LikeCreate)

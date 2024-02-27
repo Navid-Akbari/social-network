@@ -16,7 +16,7 @@ from .serializers import PostSerializer, LikeSerializer
 from .models import Post, Like
 
 
-class PostList(ListCreateAPIView):
+class PostListCreate(ListCreateAPIView):
     queryset = Post.objects.all().order_by('created_at')
     serializer_class = PostSerializer
     authentication_classes = [JWTAuthentication]
@@ -38,7 +38,7 @@ class PostList(ListCreateAPIView):
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
-class PostDetail(RetrieveUpdateDestroyAPIView):
+class PostRetrieveUpdateDestroy(RetrieveUpdateDestroyAPIView):
     queryset = Post.objects.all()
     serializer_class = PostSerializer
     authentication_classes = [JWTAuthentication]
@@ -47,7 +47,7 @@ class PostDetail(RetrieveUpdateDestroyAPIView):
     lookup_url_kwarg = 'pk'
 
 
-class LikeAPI(CreateAPIView, GenericAPIView):
+class LikeCreate(CreateAPIView, GenericAPIView):
     queryset = Like.objects.all()
     serializer_class = LikeSerializer
     http_method_names = ['post']
@@ -86,3 +86,6 @@ class LikeAPI(CreateAPIView, GenericAPIView):
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+
+class CommentCreate(CreateAPIView, GenericAPIView):

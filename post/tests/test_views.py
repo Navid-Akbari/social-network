@@ -242,7 +242,7 @@ class TestLikeAPI(TestCase):
     
     def setUp(self):
         self.client = Client()
-        self.like_api_url = reverse('post:like')
+        self.like_api_url = reverse('post:likes')
         self.user = User.objects.create(
             username='test',
             email='test@example.com',
