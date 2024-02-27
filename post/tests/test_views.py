@@ -270,6 +270,9 @@ class TestLikeAPI(TestCase):
         )
 
     def test_post_valid(self):
+        self.assertEqual(self.post.likes_count, 0)
+        self.assertEqual(self.post.dislikes_count, 0)
+
         response = self.client.post(
             self.like_api_url,
             data={
@@ -285,6 +288,8 @@ class TestLikeAPI(TestCase):
         self.assertEqual(like_Instance.user.pk, 1)
         self.assertEqual(like_Instance.post.pk, 1)
         self.assertTrue(like_Instance.is_like)
+        post = Post.objects.get(pk=1)
+        self.assertEqual(post.likes_count, 1)
 
     def test_post_bad_is_like_data(self):
         response = self.client.post(
@@ -321,7 +326,7 @@ class TestLikeAPI(TestCase):
         response = self.client.post(
             self.like_api_url,
             data={
-                'post': 'badData',
+                'post': 1,
                 'is_like': True
             },
             content_type='application/json'
@@ -336,6 +341,9 @@ class TestLikeAPI(TestCase):
         )
 
     def test_post_delete_instance_if_duplicate(self):
+        self.assertEqual(self.post1.likes_count, 0)
+        self.assertEqual(self.post1.dislikes_count, 1)
+
         response = self.client.post(
             self.like_api_url,
             data={
@@ -348,8 +356,13 @@ class TestLikeAPI(TestCase):
 
         self.assertEqual(response.status_code, 204)
         self.assertEqual(response.data['message'], 'Like removed successfully.')
+        post = Post.objects.get(pk=2)
+        self.assertEqual(post.dislikes_count, 0)
 
     def test_post_update_instance_if_duplicate(self):
+        self.assertEqual(self.post1.likes_count, 0)
+        self.assertEqual(self.post1.dislikes_count, 1)
+
         response = self.client.post(
             self.like_api_url,
             data={
@@ -362,3 +375,6 @@ class TestLikeAPI(TestCase):
 
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data['is_like'], True)
+        post = Post.objects.get(pk=2)
+        self.assertEqual(post.likes_count, 1)
+        self.assertEqual(post.dislikes_count, 0)

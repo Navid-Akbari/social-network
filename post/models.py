@@ -10,6 +10,8 @@ class Post(models.Model):
     body = models.CharField(max_length=250, blank=False)
     created_at = models.DateTimeField(auto_now_add=True, blank=False)
     last_edited = models.DateTimeField(auto_now=True, blank=False)
+    likes_count = models.PositiveIntegerField(default=0)
+    dislikes_count = models.PositiveIntegerField(default=0)
 
     class Meta:
         unique_together = [['user', 'created_at', 'body']]

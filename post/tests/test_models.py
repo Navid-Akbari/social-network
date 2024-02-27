@@ -1,7 +1,6 @@
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 from django.test import TestCase
-from django.utils import timezone
 
 from post.models import Post, Like
 
@@ -20,17 +19,18 @@ class TestPostModel(TestCase):
         post = Post.objects.create(
             user=self.user,
             body='test post body.',
-            created_at=timezone.now()
         )
 
         saved_post = Post.objects.get(pk=post.pk)
         self.assertEqual(saved_post.body, 'test post body.')
+        self.assertEqual(saved_post.likes_count, 0)
+        self.assertEqual(saved_post.dislikes_count, 0)
+
 
     def test_create_post_duplicate(self):
         post = Post.objects.create(
             user=self.user,
             body='test post body.',
-            created_at=timezone.now()
         )
 
         with self.assertRaises(ValidationError) as context:
@@ -53,7 +53,6 @@ class TestPostModel(TestCase):
                 'abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghij'
                 'klmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz'
                 'abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz',
-                created_at=timezone.now()
             )
 
         self.assertIn(
