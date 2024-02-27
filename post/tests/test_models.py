@@ -139,5 +139,4 @@ class TestCommentModel(TestCase):
                 'abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij'
                 'abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij'
                 'abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij'
-                'abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij'
             )

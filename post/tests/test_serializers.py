@@ -1,8 +1,8 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from post.models import Post, Like
-from post.serializers import PostSerializer, LikeSerializer
+from post.models import Post, Like, Comment
+from post.serializers import PostSerializer, LikeSerializer, CommentSerializer
 
 User = get_user_model()
 
@@ -135,3 +135,73 @@ class TestLikeSerializer(TestCase):
 
         self.assertFalse(serializer.is_valid())
         self.assertEqual(serializer.errors['user'][0], 'This field may not be null.')
+
+
+class TestCommentSerializer(TestCase):
+        
+    def setUp(self):
+        self.user = User.objects.create(
+            username='test',
+            email='test@example.com',
+            password='testing321'
+        )
+        self.post = Post.objects.create(
+            user=self.user,
+            body='Test post body.'
+        )
+    
+    def test_comment_valid(self):
+        serializer = CommentSerializer(
+            data = {
+                'user':self.user.pk,
+                'post':self.post.pk,
+                'body':'Test comment body.'
+            }
+        )
+
+        self.assertTrue(serializer.is_valid())
+        comment = serializer.save()
+        self.assertEqual(comment.user.username, 'test')
+        self.assertEqual(comment.post.body, 'Test post body.')
+        self.assertEqual(comment.body, 'Test comment body.')
+
+    def test_comment_invalid_data(self):
+        serializer = CommentSerializer(
+            data = {
+                'user':'',
+                'post':'',
+                'body':''
+            }
+        )
+
+        self.assertFalse(serializer.is_valid())
+        self.assertEqual(serializer.errors['user'][0], 'This field may not be null.')
+        self.assertEqual(serializer.errors['post'][0], 'This field may not be null.')
+        self.assertEqual(serializer.errors['body'][0], 'This field may not be blank.')
+
+    def test_comment_invalid_data_second(self):
+        serializer = CommentSerializer(
+            data = {
+                'user':2,
+                'post':2,
+                'body':'abcdefghijabcdefghijabcdefghijabcdefghijabcdefghij'
+                'abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij'
+                'abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij'
+                'abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij'
+                'abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij'   
+            }
+        )
+
+        self.assertFalse(serializer.is_valid())
+        self.assertEqual(
+            serializer.errors['user'][0],
+            'Invalid pk "2" - object does not exist.'
+        )
+        self.assertEqual(
+            serializer.errors['post'][0],
+            'Invalid pk "2" - object does not exist.'
+        )
+        self.assertEqual(
+            serializer.errors['body'][0],
+            'Ensure this value has at most 250 characters (it has 290).'
+        )

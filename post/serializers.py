@@ -3,7 +3,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 from account.serializers import UserSerializer
-from .models import Post, Like
+from .models import Post, Like, Comment
 
 User = get_user_model()
 
@@ -42,3 +42,19 @@ class LikeSerializer(serializers.ModelSerializer):
             self.get_unique_for_date_validators()
         )
 
+
+class CommentSerializer(serializers.ModelSerializer):
+    user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
+    post = serializers.PrimaryKeyRelatedField(queryset=Post.objects.all())
+
+    class Meta:
+        model = Comment
+        fields = ['post', 'user', 'body', 'created_at']
+        extra_kwargs = {
+            'created_at': {'read_only': True}
+        }
+    
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['user'] = UserSerializer(instance.user).data
+        return representation

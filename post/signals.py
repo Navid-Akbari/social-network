@@ -5,7 +5,7 @@ from .models import Like
 
 
 @receiver([post_delete, post_save], sender=Like)
-def update_post_likes_count(sender, instance, **kwargs):
+def update_post_likes_and_dislikes_count(sender, instance, **kwargs):
     post = instance.post
     if 'created' in kwargs:
         if kwargs['created']:
