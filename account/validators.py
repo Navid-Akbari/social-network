@@ -19,7 +19,6 @@ NAME_VALIDATOR = RegexValidator(
 
 
 def name_length_validation(name):
-
     if len(name) < 3:
         raise ValidationError('This field cannot be less than 3 characters.')
 

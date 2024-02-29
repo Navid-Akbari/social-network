@@ -27,6 +27,7 @@ class TestUserSerializer(TestCase):
                 'phone_number':'1234567890'
             }
         )
+
         self.assertTrue(serializer.is_valid())
         user = serializer.save()
         self.assertIsNotNone(user)
