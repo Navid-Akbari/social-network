@@ -1,5 +1,5 @@
-from django.contrib.auth.hashers import make_password
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 
 from rest_framework import serializers
 
@@ -23,8 +23,16 @@ class UserSerializer(serializers.ModelSerializer):
             'password': {'write_only': True},
         }
 
+    def validate(self, attrs):
+        if attrs.get('first_name'):
+            if not attrs.get('last_name'):
+                raise ValidationError({'first_name': 'last_name is missing.'})
+
+        if attrs.get('last_name'):
+            if not attrs.get('first_name'):
+                raise ValidationError({'last_name': 'first_name is missing.'})
+
+        return super().validate(attrs)
+
     def create(self, validated_data):
-        password = validated_data.pop('password')
-        validated_data['password'] = make_password(password)
-        user = super().create(validated_data)
-        return user
+        return User.objects.create_user(**validated_data)

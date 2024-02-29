@@ -1,7 +1,7 @@
 from django.core.exceptions import ValidationError
 from django.contrib.auth import password_validation
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
-from django.db import models, utils
+from django.db import models
 from django.utils import timezone
 
 from .validators import USERNAME_VALIDATOR, PHONE_NUMBER_VALIDATOR, NAME_VALIDATOR, name_length_validation
@@ -9,30 +9,42 @@ from .validators import USERNAME_VALIDATOR, PHONE_NUMBER_VALIDATOR, NAME_VALIDAT
 
 class CustomUserManager(BaseUserManager):
 
-    def create_user(self, username, email, password=None, **extra_fields):
-
+    def create_user(self, username, email, password, **extra_fields):
         user = self.model(
-            email = self.normalize_email(email),
-            username = username,
+            email=self.normalize_email(email),
+            username=username,
+            password=password,
         )
 
         for field in ['first_name', 'last_name', 'phone_number', 'is_staff', 'is_active', 'is_superuser']:
             if field in extra_fields:
                 setattr(user, field, extra_fields[field])
 
+        user.full_clean()
+
+        if user.first_name:
+            if not user.last_name:
+                raise ValidationError({'first_name': 'last_name is missing.'})
+            user.first_name = user.first_name.capitalize()
+
+        if user.last_name:
+            if not user.first_name:
+                raise ValidationError({'last_name': 'first_name is missing.'})
+            user.last_name = user.last_name.capitalize()
+
         user.set_password(password)
-        user.save(using=self._db)
+        user.save()
         return user
 
-    def create_superuser(self, username, email, password=None, **extra_fields):
+    def create_superuser(self, username, email, password, **extra_fields):
 
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
 
         if extra_fields.get('is_staff') is not True:
-            raise ValueError('Superuser must be assigned to is_staff=True')
+            raise ValueError('Superuser must have is_staff set to True.')
         if extra_fields.get('is_superuser') is not True:
-            raise ValueError('Superuser must be assigned to is_superuser=True')
+            raise ValueError('Superuser must have is_superuser set to True.')
 
         return self.create_user(username, email, password, **extra_fields)
 
@@ -61,17 +73,3 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
-
-    def save(self, *args, **kwargs):
-        try:
-            self.full_clean()
-
-            if self.first_name:
-                self.first_name = self.first_name.capitalize()
-
-            if self.last_name:
-                self.last_name = self.last_name.capitalize()
-
-            super(CustomUser, self).save(*args, **kwargs)
-        except utils.IntegrityError as error:
-            raise ValidationError(f'error: {error}')

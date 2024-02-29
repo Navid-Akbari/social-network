@@ -14,7 +14,7 @@ urlpatterns = [
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('users/', views.UserListCreate.as_view(), name='users'),
     path('users/detail/', views.UserRetrieveWithToken.as_view(), name='users_detail_token'),
-    path('users/<int:pk>/', views.UserRetrieveWithToken.as_view(), name='users_detail'),
+    path('users/<int:pk>/', views.UserRetrieveUpdateDestroy.as_view(), name='users_detail'),
     path('request-email-verification/',
         views.RequestEmailVerification.as_view(),
         name='request_email_verification'

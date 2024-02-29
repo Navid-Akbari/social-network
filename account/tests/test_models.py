@@ -1,4 +1,5 @@
 from django.core.exceptions import ValidationError
+from django.contrib.auth.hashers import check_password
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
@@ -7,7 +8,14 @@ User = get_user_model()
 
 class TestUserModel(TestCase):
 
-    def test_create_valid_user(self):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='test1',
+            email='test1@example.com',
+            password='testing321'
+        )
+
+    def test_valid_input(self):
         user = User.objects.create_user(
             username='testuser',
             email='test@example.com',
@@ -16,78 +24,110 @@ class TestUserModel(TestCase):
 
         self.assertEqual(user.email, 'test@example.com')
         self.assertEqual(user.username, 'testuser')
+        self.assertTrue(check_password('testing321', user.password))
         self.assertFalse(user.is_staff)
         self.assertFalse(user.is_superuser)
         self.assertTrue(user.is_active)
 
-    def test_createuser_missing_username(self):
-        with self.assertRaises(ValidationError):
+    def test_missing_username_email_password(self):
+        with self.assertRaises(ValidationError) as error:
             User.objects.create_user(
                 username='',
-                email='test@example.com',
-                password='testing321'
-            )
-
-    def test_createuser_username_length_validation(self):
-        with self.assertRaises(ValidationError):
-            User.objects.create_user(
-                username='as',
-                email='test@example.com',
-                password='testing321'
-            )
-
-    def test_createuser_username_symbols_validation(self):
-        with self.assertRaises(ValidationError):
-            User.objects.create_user(
-                username='test@',
-                email='test@example.com',
-                password='testing321'
-            )
-
-    def test_createuser_missing_email(self):
-        with self.assertRaises(ValidationError):
-            User.objects.create_user(
-                username='test@',
                 email='',
-                password='testing321'
-            )
-
-    def test_createuser_invalid_email_format(self):
-        with self.assertRaises(ValidationError):
-            User.objects.create_user(
-                username='test@',
-                email='invalidEmail',
-                password='testing321'
-            )
-
-    def test_createuser_missing_password(self):
-        with self.assertRaises(ValidationError):
-            User.objects.create_user(
-                username='test@',
-                email='invalidEmail',
                 password=''
             )
 
-    def test_createuser_django_default_validation(self):
-        with self.assertRaises(ValidationError):
+        self.assertEqual(dict(error.exception)['username'][0], 'This field cannot be blank.')
+        self.assertEqual(dict(error.exception)['email'][0], 'This field cannot be blank.')
+        self.assertEqual(dict(error.exception)['password'][0], 'This field cannot be blank.')
+
+    def test_username_password_firstname_lastname_min_length_validation(self):
+        with self.assertRaises(ValidationError) as error:
             User.objects.create_user(
-                username='test@',
-                email='invalidEmail',
-                password='a1'
+                username='as',
+                email='test@example.com',
+                password='test',
+                first_name='te',
+                last_name='te'
             )
 
-    def test_createuser_with_additional_info(self):
+        self.assertEqual(
+            dict(error.exception)['username'][0], 
+            'This field cannot be less than 3 characters.'
+        )
+        self.assertEqual(
+            dict(error.exception)['password'][0], 
+            'This password is too short. It must contain at least 8 characters.'
+        )
+        self.assertEqual(
+            dict(error.exception)['first_name'][0], 
+            'This field cannot be less than 3 characters.'
+        )
+        self.assertEqual(
+            dict(error.exception)['last_name'][0], 
+            'This field cannot be less than 3 characters.'
+        )
+
+    def test_username_email_password_max_length_validation(self):
+        with self.assertRaises(ValidationError) as error:
+            User.objects.create_user(
+                username='abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijk',
+                email='abcdefghijabcdefghijabcdefghijabcdefghijabcdefghij@example.com',
+                password='abcdefghijabcdefghijabcdefghijabcdefghijabcdefghij'
+                'abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij'
+                'abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij'
+            )
+
+        self.assertEqual(
+            dict(error.exception)['username'][0], 
+            'Ensure this value has at most 50 characters (it has 51).'
+        )
+        self.assertEqual(
+            dict(error.exception)['email'][0], 
+            'Ensure this value has at most 50 characters (it has 62).'
+        )
+        self.assertEqual(
+            dict(error.exception)['password'][0], 
+            'Ensure this value has at most 128 characters (it has 170).'
+        )
+
+    def test_username_symbols_validation(self):
+        with self.assertRaises(ValidationError) as error:
+            User.objects.create_user(
+                username='test@',
+                email='test@example.com',
+                password='testing321'
+            )
+
+        self.assertEqual(
+            dict(error.exception)['username'][0], 
+            'Enter a valid username. This value may contain only letters,'
+            ' numbers, and @/./+/-/_ characters.'
+        )
+
+    def test_invalid_email_format(self):
+        with self.assertRaises(ValidationError) as error:
+            User.objects.create_user(
+                username='test',
+                email='test@example.c',
+                password='testing321'
+            )
+
+        self.assertEqual(dict(error.exception)['email'][0], 'Enter a valid email address.')
+
+    def testadditional_valid_info_and_capitaliziation_of_firstname_lastname(self):
         user = User.objects.create_user(
-            username='testuser',
+            username='test',
             email='test@example.com',
             password='testing321',
-            first_name='test',
-            last_name='test',
+            first_name='tESt',
+            last_name='tESt',
             phone_number='9999999999'
         )
 
         self.assertEqual(user.email, 'test@example.com')
-        self.assertEqual(user.username, 'testuser')
+        self.assertEqual(user.username, 'test')
+        self.assertTrue(check_password('testing321', user.password))
         self.assertEqual(user.first_name, 'Test')
         self.assertEqual(user.last_name, 'Test')
         self.assertEqual(user.phone_number, '9999999999')
@@ -95,60 +135,117 @@ class TestUserModel(TestCase):
         self.assertFalse(user.is_superuser)
         self.assertTrue(user.is_active)
 
-    def test_create_user_with_invalid_first_name(self):
-        with self.assertRaises(ValidationError):
+    def test_firstname_must_have_lastname(self):
+        with self.assertRaises(ValidationError) as error:
             User.objects.create_user(
-                username='testuser',
+                username='test',
                 email='test@example.com',
                 password='testing321',
-                first_name='te',
+                first_name='test'
             )
 
-    def test_create_user_with_invalid_last_name(self):
-        with self.assertRaises(ValidationError):
+        self.assertEqual(dict(error.exception)['first_name'][0], 'last_name is missing.')
+    
+    def test_lastname_must_have_firstname(self):
+        with self.assertRaises(ValidationError) as error:
             User.objects.create_user(
-                username='testuser',
+                username='test',
                 email='test@example.com',
                 password='testing321',
-                last_name='te',
+                last_name='test'
             )
 
-    def test_create_user_with_invalid_phone_number(self):
-        with self.assertRaises(ValidationError):
+        self.assertEqual(dict(error.exception)['last_name'][0], 'first_name is missing.')
+
+    def test_firstname_lastname_invalid_format(self):
+        with self.assertRaises(ValidationError) as error:
             User.objects.create_user(
-                username='testuser',
+                username='test',
                 email='test@example.com',
                 password='testing321',
-                phone_number='95',
+                first_name='test@',
+                last_name='test@'
             )
 
-    def test_create_valid_superuser(self):
+        self.assertEqual(
+            dict(error.exception)['last_name'][0],
+            'First name and last name can only contain letters.'
+        )
+        self.assertEqual(
+            dict(error.exception)['last_name'][0],
+            'First name and last name can only contain letters.'
+        )
+
+    def test_invalid_phone_number(self):
+        with self.assertRaises(ValidationError) as error:
+            User.objects.create_user(
+                username='test',
+                email='test@example.com',
+                password='testing321',
+                phone_number='95'
+            )
+
+        self.assertEqual(
+            dict(error.exception)['phone_number'][0],
+            'Phone number must be entered in the format: "+999999999".'
+            ' Up to 15 digits allowed.'
+        )
+
+    def test_valid_superuser(self):
         user = User.objects.create_superuser(
-            username='testuser',
+            username='test',
             email='test@example.com',
             password='testing321'
         )
 
         self.assertEqual(user.email, 'test@example.com')
-        self.assertEqual(user.username, 'testuser')
+        self.assertEqual(user.username, 'test')
+        self.assertTrue(check_password('testing321', user.password))
         self.assertTrue(user.is_staff)
         self.assertTrue(user.is_superuser)
         self.assertTrue(user.is_active)
 
-    def test_create_superuser_with_false_is_staff(self):
-        with self.assertRaises(ValueError):
+    def test_false_is_staff(self):
+        with self.assertRaises(ValueError) as error:
             User.objects.create_superuser(
-                username='testuser',
+                username='test',
                 email='test@example.com',
                 password='testing321',
                 is_staff=False
             )
 
-    def test_create_superuser_with_false_is_active(self):
-        with self.assertRaises(ValueError):
+        self.assertEqual(
+            error.exception.args[0], 
+            'Superuser must have is_staff set to True.'
+        )
+
+    def test_false_is_superuser(self):
+        with self.assertRaises(ValueError) as error:
             User.objects.create_superuser(
-                username='testuser',
+                username='test',
                 email='test@example.com',
                 password='testing321',
-                is_staff=False
+                is_superuser=False
             )
+        
+        self.assertEqual(
+            error.exception.args[0], 
+            'Superuser must have is_superuser set to True.'
+        )
+
+    def test_username_email_unique_constraint(self):
+        with self.assertRaises(ValidationError) as error:
+            User.objects.create_user(
+                username='test1',
+                email='test1@example.com',
+                password='testing321'
+            )
+        
+        self.assertEqual(
+            dict(error.exception)['username'][0],
+            'Custom user with this Username already exists.'
+        )
+        self.assertEqual(
+            dict(error.exception)['email'][0],
+            'Custom user with this Email already exists.'
+        )

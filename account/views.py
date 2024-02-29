@@ -54,6 +54,7 @@ class UserRetrieveUpdateDestroy(RetrieveUpdateDestroyAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     authentication_classes = [JWTAuthentication]
+    http_method_names = ['get', 'patch', 'delete', 'put']
     lookup_field = 'pk'
     lookup_url_kwarg = 'pk'
 
@@ -61,7 +62,6 @@ class UserRetrieveUpdateDestroy(RetrieveUpdateDestroyAPIView):
         # this method shouldn't change passwords
         if 'password' in request.data:
             request.data.pop('password')
-        
 
         return self.partial_update(request, *args, **kwargs)
 
@@ -84,7 +84,7 @@ class UserRetrieveWithToken(GenericAPIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         else:
             return Response(
-                {'error': 'Authorization credentials were not provided.'},
+                {'error': 'Authentication credentials were not provided.'},
                 status=status.HTTP_401_UNAUTHORIZED
             )
 
@@ -215,7 +215,14 @@ class RequestPasswordReset(APIView):
             status=status.HTTP_200_OK
         )
 
-
+"""
+password reset is done in the same view but handles data in two ways:
+1. If a user has lost their account password they can request an email, within the email
+    is a link that supposedly takes them to a front-end view. there the uidb64 and token
+    from the link have to be extracted and sent here with the passwords.
+2. If a user is already logged in and has a token, the token can be sent with the passwords
+    for the change to take place.
+"""
 class ResetPassword(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
