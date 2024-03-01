@@ -16,7 +16,7 @@ class TestPostSerializer(TestCase):
             password='testing321'
         )
 
-    def test_post_serializer_valid(self):
+    def test_valid(self):
         serializer = PostSerializer(
             data={
                 'body': 'Test post body.',
@@ -30,7 +30,7 @@ class TestPostSerializer(TestCase):
         self.assertEqual(post.user.username, self.user.username)
         self.assertEqual(post.body, 'Test post body.')
 
-    def test_post_serializer_missing_body(self):
+    def test_missing_body(self):
         serializer = PostSerializer(data={'user': 1})
 
         self.assertFalse(serializer.is_valid())
@@ -39,7 +39,7 @@ class TestPostSerializer(TestCase):
             'This field is required.'
         )
 
-    def test_post_serializer_exceed_body_length(self):
+    def test_max_body_length_constraint(self):
         serializer = PostSerializer(
             data={
                 'body': 'abcdefghijabcdefghijabcdefghijabcdefghijabcdefghij'
@@ -57,13 +57,13 @@ class TestPostSerializer(TestCase):
             'Ensure this field has no more than 250 characters.'
         )
 
-    def test_post_serializer_missing_user(self):
+    def test_missing_user(self):
         serializer = PostSerializer(data={'body': 'Test post body.'})
 
         self.assertFalse(serializer.is_valid())
         self.assertEqual(serializer.errors['user'][0],  'This field is required.')
 
-    def test_post_serializer_invalid_user(self):
+    def test_invalid_user_value(self):
         serializer = PostSerializer(
             data={
                 'body': 'Test post body.',
@@ -109,7 +109,7 @@ class TestLikeSerializer(TestCase):
             body='Test1 post body'
         )
 
-    def test_like_serializer_valid(self):
+    def test_valid(self):
         serializer = LikeSerializer(
             data={
                 'user': self.user1.pk,
@@ -124,7 +124,7 @@ class TestLikeSerializer(TestCase):
         self.assertEqual(Like.user.pk, 2)
         self.assertEqual(Like.user.username, 'test1')
 
-    def test_like_serializer_invalid(self):
+    def test_empty_user(self):
         serializer = LikeSerializer(
             data={
                 'user': '',
@@ -150,7 +150,7 @@ class TestCommentSerializer(TestCase):
             body='Test post body.'
         )
     
-    def test_comment_valid(self):
+    def test_valid(self):
         serializer = CommentSerializer(
             data = {
                 'user':self.user.pk,
@@ -165,7 +165,7 @@ class TestCommentSerializer(TestCase):
         self.assertEqual(comment.post.body, 'Test post body.')
         self.assertEqual(comment.body, 'Test comment body.')
 
-    def test_comment_invalid_data(self):
+    def test_empty_user_post_body(self):
         serializer = CommentSerializer(
             data = {
                 'user':'',
@@ -179,7 +179,7 @@ class TestCommentSerializer(TestCase):
         self.assertEqual(serializer.errors['post'][0], 'This field may not be null.')
         self.assertEqual(serializer.errors['body'][0], 'This field may not be blank.')
 
-    def test_comment_invalid_data_second(self):
+    def test_user_post_not_found_and_max_body_length_constraint(self):
         serializer = CommentSerializer(
             data = {
                 'user':2,

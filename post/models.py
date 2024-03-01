@@ -18,11 +18,8 @@ class Post(models.Model):
         unique_together = [['user', 'created_at', 'body']]
 
     def save(self, *args, **kwargs):
-        try:
-            self.full_clean()
-            super(Post, self).save(*args, **kwargs)
-        except utils.IntegrityError as error:
-            raise ValidationError(f'error: {error}')
+        self.full_clean()
+        super(Post, self).save(*args, **kwargs)
 
 
 class Like(models.Model):
@@ -34,11 +31,9 @@ class Like(models.Model):
         unique_together = [['post', 'user']]
 
     def save(self, *args, **kwargs):
-        try:
-            self.full_clean()
-            super(Like, self).save(*args, **kwargs)
-        except utils.IntegrityError as error:
-            raise ValidationError(f'error: {error}')
+        self.full_clean()
+        super(Like, self).save(*args, **kwargs)
+
 
 
 class Comment(models.Model):
@@ -48,8 +43,6 @@ class Comment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, blank=False)
 
     def save(self, *args, **kwargs):
-        try:
-            self.full_clean()
-            super(Comment, self).save(*args, **kwargs)
-        except utils.IntegrityError as error:
-            raise ValidationError(f'error: {error}')
+        self.full_clean()
+        super(Comment, self).save(*args, **kwargs)
+

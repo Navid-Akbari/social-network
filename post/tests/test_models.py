@@ -8,6 +8,7 @@ User = get_user_model()
 
 
 class TestPostModel(TestCase):
+
     def setUp(self):
         self.user = User.objects.create(
             username='test',
@@ -15,7 +16,7 @@ class TestPostModel(TestCase):
             password='testing321'
         )
 
-    def test_create_post_valid(self):
+    def test_valid(self):
         post = Post.objects.create(
             user=self.user,
             body='test post body.',
@@ -27,7 +28,7 @@ class TestPostModel(TestCase):
         self.assertEqual(saved_post.dislikes_count, 0)
 
 
-    def test_create_post_duplicate(self):
+    def test_duplicate(self):
         post = Post.objects.create(
             user=self.user,
             body='test post body.',
@@ -45,7 +46,7 @@ class TestPostModel(TestCase):
             str(context.exception)
         )
 
-    def test_create_post_body_length_constraint(self):
+    def test_max_body_length_constraint(self):
         with self.assertRaises(ValidationError) as context:
             Post.objects.create(
                 user=self.user,
@@ -101,7 +102,7 @@ class TestCommentModel(TestCase):
             body='Test post body.'
         )
 
-    def test_create_comment_valid(self):
+    def test_valid(self):
         comment = Comment.objects.create(
             user=self.user,
             post=self.post,
@@ -113,23 +114,17 @@ class TestCommentModel(TestCase):
         self.assertEqual(saved_comment.post, self.post)
         self.assertEqual(saved_comment.body, 'Test comment.')
 
-    def test_create_comment_invalid_body(self):
-        with self.assertRaises(ValidationError):
+    def test_empty_body(self):
+        with self.assertRaises(ValidationError) as error:
             Comment.objects.create(
                 user=self.user,
                 post=self.post,
                 body=''
             )
-    
-    def test_create_comment_empty_body(self):
-        with self.assertRaises(ValidationError):
-            Comment.objects.create(
-                user=self.user,
-                post=self.post,
-                body=''
-            )
-    
-    def test_create_comment_invalid_body_length(self):
+
+        self.assertEqual(dict(error.exception)['body'][0], 'This field cannot be blank.')
+
+    def test_max_body_length_constraint(self):
         with self.assertRaises(ValidationError):
             Comment.objects.create(
                 user=self.user,
