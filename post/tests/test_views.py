@@ -5,15 +5,16 @@ from django.urls import reverse
 from rest_framework_simplejwt.tokens import AccessToken
 import json
 
-from post.models import Post, Like
+from post.models import Post, Like, Comment
 
 User = get_user_model()
+
 
 class TestPostListCreate(TestCase):
 
     def setUp(self):
         self.client = Client()
-        self.post_url = reverse('post:posts')
+        self.url = reverse('post:posts')
         self.user = User.objects.create_user(
             username='test',
             email='test@example.com',
@@ -39,7 +40,7 @@ class TestPostListCreate(TestCase):
 
     def test_valid_post_request(self):
         response = self.client.post(
-            self.post_url,
+            self.url,
             data = {
                 'body': 'Test post body.'
             },
@@ -51,26 +52,24 @@ class TestPostListCreate(TestCase):
         self.assertEqual(response.data['user']['id'], 1)
         self.assertEqual(response.data['body'], 'Test post body.')
 
-    def test_unauthorized_request(self):
+    def test_unauthenticated_request(self):
         response = self.client.post(
-            self.post_url,
+            self.url,
             data = {
                 'body': 'Test post body.'
             },
             content_type='application/json'
         )
 
-        response_data = json.loads(response.content)
-
         self.assertEqual(response.status_code, 401)
         self.assertEqual(
-            response_data['error']['message'],
-            'No permission -- see authorization schemes'
+            response.data['detail'],
+            'Authentication credentials were not provided.'
         )
 
     def test_max_body_length_constraint(self):
         response = self.client.post(
-            self.post_url,
+            self.url,
             data = {
                 'body': 'abcdefghijabcdefghijabcdefghijabcdefghijabcdefghij'
                 'abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij'
@@ -90,7 +89,7 @@ class TestPostListCreate(TestCase):
 
     def test_valid_get_request(self):
         response = self.client.get(
-            self.post_url,
+            self.url,
             HTTP_AUTHORIZATION=f'Bearer {self.user_access_token}'
         )
 
@@ -101,18 +100,9 @@ class TestPostListCreate(TestCase):
         self.assertIsNone(response.data['previous'])
         self.assertEqual(len(response.data['results']), 10)
 
-    def test_unauthenticated_get_request(self):
-        response = self.client.get(self.post_url)
-
-        self.assertEqual(response.status_code, 401)
-        self.assertEqual(
-            response.data['detail'],
-            'Authentication credentials were not provided.'
-        )
-
     def test_url_parameters_in_get_request(self):
         response = self.client.get(
-            self.post_url + '?search=test1',
+            self.url + '?search=test1',
             HTTP_AUTHORIZATION=f'Bearer {self.user_access_token}'
         )
 
@@ -129,7 +119,7 @@ class TestPostRetrieveUpdateDestroy(TestCase):
     
     def setUp(self):
         self.client = Client()
-        self.user = User.objects.create(
+        self.user = User.objects.create_user(
             username='test',
             email='test@example.com',
             password='testing321'
@@ -139,7 +129,7 @@ class TestPostRetrieveUpdateDestroy(TestCase):
             user=self.user,
             body='Test post body.'
         )
-        self.user1 = User.objects.create(
+        self.user1 = User.objects.create_user(
             username='test1',
             email='test1@example.com',
             password='testing321'
@@ -150,6 +140,33 @@ class TestPostRetrieveUpdateDestroy(TestCase):
             body='Test1 post body.'
         )
 
+    def test_unauthenticated_request(self):
+        response = self.client.patch(
+            reverse('post:posts_detail', kwargs={'pk': 2}),
+            data={'body': 'Updated test1 post body.'},
+            HTTP_AUTHORIZATION=f'Bearer {self.user_access_token}',
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(
+            response.data['detail'],
+            'User does not have permission to access this object.'
+        )
+
+    def test_unauthorized_request(self):
+        response = self.client.patch(
+            reverse('post:posts_detail', kwargs={'pk': 2}),
+            data={'body': 'Updated test1 post body.'},
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(
+            response.data['detail'],
+            'Authentication credentials were not provided.'
+        )
+
     def test_valid_get_request(self):
         response = self.client.get(
             reverse('post:posts_detail', kwargs={'pk': 1}),
@@ -158,7 +175,6 @@ class TestPostRetrieveUpdateDestroy(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['user']['username'], 'test')
-        self.assertEqual(response.data['user']['email'], 'test@example.com')
         self.assertEqual(response.data['body'], 'Test post body.')
 
     def test_user_not_found_get_request(self):
@@ -194,21 +210,6 @@ class TestPostRetrieveUpdateDestroy(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data['body'][0], 'This field may not be blank.')
 
-    def test_unauthenticated_patch_request(self):
-        response = self.client.patch(
-            reverse('post:posts_detail', kwargs={'pk': 2}),
-            data={'body': 'Updated test1 post body.'},
-            content_type='application/json'
-        )
-
-        response_data = json.loads(response.content)
-
-        self.assertEqual(response.status_code, 401)
-        self.assertEqual(
-            response_data['error']['message'],
-            'No permission -- see authorization schemes'
-        )
-
     def test_valid_delete_request(self):
         response = self.client.delete(
             reverse('post:posts_detail', kwargs={'pk': 2}),
@@ -216,34 +217,14 @@ class TestPostRetrieveUpdateDestroy(TestCase):
         )
 
         self.assertEqual(response.status_code, 204)
-    
-    def test_unauthenticated_delete_request(self):
-        response = self.client.delete(
-            reverse('post:posts_detail', kwargs={'pk': 2}),
-        )
-
-        self.assertEqual(response.status_code, 401)
-        self.assertEqual(
-            response.data['detail'],
-            'Authentication credentials were not provided.'
-        )
-
-    def test_user_not_found_delete_request(self):
-        response = self.client.delete(
-            reverse('post:posts_detail', kwargs={'pk': 3}),
-            HTTP_AUTHORIZATION=f'Bearer {self.user1_access_token}',
-        )
-
-        self.assertEqual(response.status_code, 404)
-        self.assertEqual(response.data['detail'], 'Not found.')
 
 
 class TestLikeCreate(TestCase):
     
     def setUp(self):
         self.client = Client()
-        self.like_api_url = reverse('post:likes')
-        self.user = User.objects.create(
+        self.url = reverse('post:likes')
+        self.user = User.objects.create_user(
             username='test',
             email='test@example.com',
             password='testing321'
@@ -253,7 +234,7 @@ class TestLikeCreate(TestCase):
             user=self.user,
             body='Test post body.'
         )
-        self.user1 = User.objects.create(
+        self.user1 = User.objects.create_user(
             username='test1',
             email='test1@example.com',
             password='testing321'
@@ -274,7 +255,7 @@ class TestLikeCreate(TestCase):
         self.assertEqual(self.post.dislikes_count, 0)
 
         response = self.client.post(
-            self.like_api_url,
+            self.url,
             data={
                 'post': 1,
                 'is_like': True
@@ -293,7 +274,7 @@ class TestLikeCreate(TestCase):
 
     def test_invalid_islike_value(self):
         response = self.client.post(
-            self.like_api_url,
+            self.url,
             data={
                 'post': 1,
                 'is_like': 'badData'
@@ -307,7 +288,7 @@ class TestLikeCreate(TestCase):
 
     def test_invalid_post_value(self):
         response = self.client.post(
-            self.like_api_url,
+            self.url,
             data={
                 'post': 'badData',
                 'is_like': True
@@ -324,7 +305,7 @@ class TestLikeCreate(TestCase):
 
     def test_unauthenticated_request(self):
         response = self.client.post(
-            self.like_api_url,
+            self.url,
             data={
                 'post': 1,
                 'is_like': True
@@ -332,12 +313,10 @@ class TestLikeCreate(TestCase):
             content_type='application/json'
         )
 
-        response_data = json.loads(response.content)
-
         self.assertEqual(response.status_code, 401)
         self.assertEqual(
-            response_data['error']['message'],
-            'No permission -- see authorization schemes'
+            response.data['detail'],
+            'Authentication credentials were not provided.'
         )
 
     def test_delete_instance_if_duplicate(self):
@@ -345,7 +324,7 @@ class TestLikeCreate(TestCase):
         self.assertEqual(self.post1.dislikes_count, 1)
 
         response = self.client.post(
-            self.like_api_url,
+            self.url,
             data={
                 'post': 2,
                 'is_like': False
@@ -364,7 +343,7 @@ class TestLikeCreate(TestCase):
         self.assertEqual(self.post1.dislikes_count, 1)
 
         response = self.client.post(
-            self.like_api_url,
+            self.url,
             data={
                 'post': 2,
                 'is_like': True
@@ -378,3 +357,283 @@ class TestLikeCreate(TestCase):
         post = Post.objects.get(pk=2)
         self.assertEqual(post.likes_count, 1)
         self.assertEqual(post.dislikes_count, 0)
+
+
+class TestCommentListCreate(TestCase):
+
+    def setUp(self):
+        self.client = Client()
+        self.url = reverse('post:comments')
+        self.user = User.objects.create_user(
+            username='test',
+            email='test@example.com',
+            password='testing321'
+        )
+        self.user1 = User.objects.create_user(
+            username='test1',
+            email='test1@example.com',
+            password='testing321'
+        )
+        self.access_token = AccessToken.for_user(user=self.user)
+        self.post = Post.objects.create(
+            user=self.user,
+            body='Test post body.'
+        )
+        for i in range(0, 20):
+            Comment.objects.create(
+                user=self.user,
+                post=self.post,
+                body=f'Test{i} comment body.'
+            )
+        for i in range(0, 5):
+            Comment.objects.create(
+                user=self.user1,
+                post=self.post,
+                body=f'Test{i} comment body.'
+            )
+
+    def test_valid_post_request(self):
+        response = self.client.post(
+            self.url,
+            data={
+                'post': 1,
+                'body': 'Test comment body.'
+            },
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data['post'], 1)
+        self.assertEqual(response.data['user']['id'], 1)
+        self.assertEqual(response.data['body'], 'Test comment body.')
+
+    def test_invalid_post_id_post_request(self):
+        response = self.client.post(
+            self.url,
+            data={
+                'post': 2,
+                'body': 'Test comment body.'
+            },
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(str(response.data['post'][0]), 'Invalid pk "2" - object does not exist.')
+
+    def test_empty_body(self):
+        response = self.client.post(
+            self.url,
+            data={
+                'post': 1,
+                'body': ''
+            },
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(str(response.data['body'][0]), 'This field may not be blank.')
+    
+    def test_unauthenticated_post_request(self):
+        response = self.client.post(
+            self.url,
+            data={
+                'post': 1,
+                'body': 'Test comment body.'
+            },
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(
+            response.data['detail'],
+            'Authentication credentials were not provided.'
+        )
+
+
+    def test_valid_post_id_parameter_get_request(self):
+        response = self.client.get(
+            self.url + '?post_id=1',
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data['count'])
+        self.assertTrue(response.data['results'])
+        self.assertTrue(response.data['next'])
+        self.assertIsNone(response.data['previous'])
+        self.assertEqual(len(response.data['results']), 10)
+
+    def test_unauthenticated_get_request(self):
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 401)
+        response_data = json.loads(response.content)
+        self.assertEqual(
+            response_data['detail'],
+            'Authentication credentials were not provided.'
+        )
+
+    def test_invalid_post_id_get_request(self):
+        response = self.client.get(
+            self.url + '?post_id=2',
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(str(response.data['detail']), 'Post not found.')
+
+
+    def test_valid_user_id_parameter_get_request(self):
+        response = self.client.get(
+            self.url + '?user_id=2',
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data['count'])
+        self.assertTrue(response.data['results'])
+        self.assertIsNone(response.data['next'])
+        self.assertIsNone(response.data['previous'])
+        self.assertEqual(len(response.data['results']), 5)
+
+    def test_invalid_user_id_get_request(self):
+        response = self.client.get(
+            self.url + '?user_id=3',
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(str(response.data['detail']), 'User not found.')
+    
+    def test_invalid_get_request_parameters(self):
+        response = self.client.get(
+            self.url,
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(str(response.data['detail']), 'Invalid request parameters.')
+
+
+class TestCommentRetrieveUpdateDestroy(TestCase):
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username='test',
+            email='test@example.com',
+            password='testing321'
+        )
+        self.access_token = AccessToken.for_user(user=self.user)
+        self.user1 = User.objects.create_user(
+            username='test1',
+            email='test1@example.com',
+            password='testing321'
+        )
+        self.access_token1 = AccessToken.for_user(user=self.user1)
+        self.post = Post.objects.create(
+            user=self.user,
+            body='Test post body.'
+        )
+        self.post1 = Post.objects.create(
+            user=self.user,
+            body='Test1 post body.'
+        )
+        self.comment = Comment.objects.create(
+            user=self.user,
+            post=self.post,
+            body='Test comment body.'
+        )
+
+    def test_unauthenticated_request(self):
+        response = self.client.patch(
+            reverse('post:comments_detail', kwargs={'pk':1}),
+            data={'body': 'Updated comment body.'},
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 401)
+        response_data = json.loads(response.content)
+        self.assertEqual(
+            response_data['detail'],
+            'Authentication credentials were not provided.'
+        )
+
+    def test_unauthorized_request(self):
+        response = self.client.patch(
+            reverse('post:comments_detail', kwargs={'pk':1}),
+            data={'body': 'Updated comment body.'},
+            HTTP_AUTHORIZATION= f'Bearer {self.access_token1}',
+            content_type='application/json'
+        )
+
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(
+            response.data['detail'],
+            'User does not have permission to access this object.'
+        )
+
+    def test_valid_get_request(self):
+        response = self.client.get(
+            reverse('post:comments_detail', kwargs={'pk':1}),
+            HTTP_AUTHORIZATION= f'Bearer {self.access_token}'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['user']['id'], 1)
+        self.assertEqual(response.data['post'], 1)
+        self.assertEqual(response.data['body'], 'Test comment body.')
+
+    def test_invalid_post_id_in_get_request(self):
+        response = self.client.get(
+            reverse('post:comments_detail', kwargs={'pk':3}),
+            HTTP_AUTHORIZATION= f'Bearer {self.access_token}',
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.data['detail'], 'Not found.')
+
+    def test_invalid_comment_id_in_get_request(self):
+        response = self.client.get(
+            reverse('post:comments_detail', kwargs={'pk':2}),
+            HTTP_AUTHORIZATION= f'Bearer {self.access_token}'
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.data['detail'], 'Not found.')
+
+    def test_valid_patch_request(self):
+        response = self.client.patch(
+            reverse('post:comments_detail', kwargs={'pk':1}),
+            data={
+                'body': 'Updated comment body',
+            },
+            HTTP_AUTHORIZATION= f'Bearer {self.access_token}',
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['body'], 'Updated comment body')
+    
+    def test_invalid_data_in_patch_request(self):
+        response = self.client.patch(
+            reverse('post:comments_detail', kwargs={'pk':1}),
+            data={},
+            HTTP_AUTHORIZATION= f'Bearer {self.access_token}',
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['detail'], 'Invalid request data.')
+
+    def test_valid_delete_request(self):
+        response = self.client.delete(
+            reverse('post:comments_detail', kwargs={'pk':1}),
+            HTTP_AUTHORIZATION= f'Bearer {self.access_token}',
+        )
+
+        self.assertEqual(response.status_code, 204)

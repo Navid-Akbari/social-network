@@ -10,10 +10,18 @@ class TestUrls(SimpleTestCase):
         url = reverse('post:posts')
         self.assertEqual(resolve(url).func.view_class, views.PostListCreate)
 
-    def test_post_retrieve_update_destroy__is_resolved(self):
+    def test_post_retrieve_update_destroy_is_resolved(self):
         url = reverse('post:posts_detail', kwargs={'pk': 1})
         self.assertEqual(resolve(url).func.view_class, views.PostRetrieveUpdateDestroy)
 
-    def test_list_create_url_is_resolved(self):
+    def test_like_create_url_is_resolved(self):
         url = reverse('post:likes')
         self.assertEqual(resolve(url).func.view_class, views.LikeCreate)
+
+    def test_comment_list_create_url_is_resolved(self):
+        url = reverse('post:comments')
+        self.assertEqual(resolve(url).func.view_class, views.CommentListCreate)
+    
+    def test_comment_retrieve_update_destroy_url_is_resolved(self):
+        url = reverse('post:comments_detail', kwargs={'pk': 1})
+        self.assertEqual(resolve(url).func.view_class, views.CommentRetrieveUpdateDestroy)

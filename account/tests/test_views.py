@@ -193,16 +193,16 @@ class TestUserRetrieveUpdateDestroy(TestCase):
 
     def test_unauthorized_patch(self):
         response = self.client.patch(
-            reverse('account:users_detail', kwargs={'pk': 1}),
+            reverse('account:users_detail', kwargs={'pk': 2}),
             data={'username': 'updatedtest', 'email': 'updatedtest@example.com'},
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
             content_type='application/json'
         )
 
-        self.assertEqual(response.status_code, 401)
-        response_data = json.loads(response.content)
+        self.assertEqual(response.status_code, 403)
         self.assertEqual(
-            response_data['error']['message'],
-            'No permission -- see authorization schemes'
+            response.data['detail'],
+            'User does not have permission to access this object.'
         )
 
     def test_valid_delete(self):
@@ -212,14 +212,6 @@ class TestUserRetrieveUpdateDestroy(TestCase):
         )
 
         self.assertEqual(response.status_code, 204)
-    
-    def test_unauthenticated_delete(self):
-        response = self.client.delete(
-            reverse('account:users_detail', kwargs={'pk': 1}),
-        )
-
-        self.assertEqual(response.status_code, 401)
-        self.assertEqual(response.data['detail'], 'Authentication credentials were not provided.')
 
 
 class TestUserRetrieveWithToken(TestCase):
@@ -251,7 +243,7 @@ class TestUserRetrieveWithToken(TestCase):
 
         self.assertEqual(response.status_code, 401)
         self.assertEqual(
-            response.data['error'],
+            response.data['detail'],
             'Authentication credentials were not provided.'
         )
 

@@ -13,7 +13,7 @@ from rest_framework.generics import (
     RetrieveUpdateDestroyAPIView,
     GenericAPIView
 )
-from rest_framework.permissions import AllowAny, IsAdminUser
+from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from django_filters.rest_framework import DjangoFilterBackend
@@ -51,7 +51,6 @@ class UserListCreate(ListCreateAPIView):
 
 
 class UserRetrieveUpdateDestroy(RetrieveUpdateDestroyAPIView):
-    queryset = User.objects.all()
     serializer_class = UserSerializer
     authentication_classes = [JWTAuthentication]
     http_method_names = ['get', 'patch', 'delete', 'put']
@@ -70,28 +69,24 @@ class UserRetrieveUpdateDestroy(RetrieveUpdateDestroyAPIView):
             return [IsAdminUser()]
         if any(method in self.request.method for method in ['PATCH', 'DELETE']):
             return [IsTheSameUserOrAdmin()]
-        return [AllowAny()]
+
+    def get_queryset(self):
+        return User.objects.filter(pk=self.kwargs['pk'])
 
 
 class UserRetrieveWithToken(GenericAPIView):
-    queryset = User.objects.all()
     serializer_class = UserSerializer
     authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
-        if request.user.is_authenticated:
-            serializer = self.serializer_class(request.user)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        else:
-            return Response(
-                {'error': 'Authentication credentials were not provided.'},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
+        serializer = self.serializer_class(request.user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class RequestEmailVerification(APIView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
 

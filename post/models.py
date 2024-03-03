@@ -1,7 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.core.validators import MaxLengthValidator
-from django.core.exceptions import ValidationError
-from django.db import models, utils
+from django.db import models
 
 User = get_user_model()
 
@@ -33,7 +32,6 @@ class Like(models.Model):
     def save(self, *args, **kwargs):
         self.full_clean()
         super(Like, self).save(*args, **kwargs)
-
 
 
 class Comment(models.Model):

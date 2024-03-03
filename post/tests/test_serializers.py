@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from post.models import Post, Like, Comment
+from post.models import Post, Like
 from post.serializers import PostSerializer, LikeSerializer, CommentSerializer
 
 User = get_user_model()
