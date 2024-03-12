@@ -158,4 +158,3 @@ class CommentRetrieveUpdateDestroy(RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         return Comment.objects.filter(pk=self.kwargs['pk']).order_by('created_at')
-

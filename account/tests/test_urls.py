@@ -30,3 +30,23 @@ class TestUrls(SimpleTestCase):
     def test_get_with_token_url_is_resolved(self):
         url = reverse('account:users_detail_token')
         self.assertEqual(resolve(url).func.view_class, views.UserRetrieveWithToken)
+
+    def test_profile_picture_retrieve_update_url_is_resolved(self):
+        url = reverse('account:profile', kwargs={'pk': 1})
+        self.assertEqual(resolve(url).func.view_class, views.ProfileRetrieveUpdate)
+
+    def test_request_email_verification_url_is_resolved(self):
+        url = reverse('account:request_email_verification')
+        self.assertEqual(resolve(url).func.view_class, views.RequestEmailVerification)
+
+    def test_verify_email_url_is_resolved(self):
+        url = reverse('account:verify_email')
+        self.assertEqual(resolve(url).func.view_class, views.VerifyEmail)
+
+    def test_request_password_reset_url_is_resolved(self):
+        url = reverse('account:request_password_reset')
+        self.assertEqual(resolve(url).func.view_class, views.RequestPasswordReset)
+
+    def test_reset_password_is_resolved(self):
+        url = reverse('account:reset_password')
+        self.assertEqual(resolve(url).func.view_class, views.ResetPassword)

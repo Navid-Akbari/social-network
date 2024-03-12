@@ -43,4 +43,3 @@ class Comment(models.Model):
     def save(self, *args, **kwargs):
         self.full_clean()
         super(Comment, self).save(*args, **kwargs)
-

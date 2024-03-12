@@ -4,7 +4,16 @@ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, Permis
 from django.db import models
 from django.utils import timezone
 
-from .validators import USERNAME_VALIDATOR, PHONE_NUMBER_VALIDATOR, NAME_VALIDATOR, name_length_validation
+from PIL import Image
+import os
+
+from .validators import (
+    USERNAME_VALIDATOR, 
+    PHONE_NUMBER_VALIDATOR, 
+    NAME_VALIDATOR, 
+    name_length_validation
+)
+from social_network.settings import BASE_DIR, MEDIA_ROOT
 
 
 class CustomUserManager(BaseUserManager):
@@ -51,12 +60,32 @@ class CustomUserManager(BaseUserManager):
 
 class CustomUser(AbstractBaseUser, PermissionsMixin):
 
-    first_name = models.CharField(max_length=50, validators=[NAME_VALIDATOR, name_length_validation], blank=True, null=True)
-    last_name = models.CharField(max_length=50, validators=[NAME_VALIDATOR, name_length_validation], blank=True, null=True)
-    username = models.CharField(max_length=50, validators=[USERNAME_VALIDATOR, name_length_validation], unique=True, blank=False)
+    first_name = models.CharField(
+        max_length=50, 
+        validators=[NAME_VALIDATOR, name_length_validation], 
+        blank=True, null=True
+    )
+    last_name = models.CharField(
+        max_length=50, 
+        validators=[NAME_VALIDATOR, name_length_validation], 
+        blank=True, 
+        null=True
+    )
+    username = models.CharField(
+        max_length=50, 
+        validators=[USERNAME_VALIDATOR, name_length_validation], 
+        unique=True, 
+        blank=False
+    )
     email = models.EmailField(max_length=50, unique=True, blank=False)
     password = models.CharField(max_length=128, validators=[password_validation.validate_password], blank=False)
-    phone_number = models.CharField(max_length=15, validators=[PHONE_NUMBER_VALIDATOR], blank=True, null=True, unique=True)
+    phone_number = models.CharField(
+        max_length=15, 
+        validators=[PHONE_NUMBER_VALIDATOR], 
+        blank=True, 
+        null=True, 
+        unique=True
+    )
     email_verified = models.BooleanField(default=False)
     phone_verified = models.BooleanField(default=False)
     verification_token = models.CharField(max_length=64, default=None, null=True, blank=True)
@@ -73,3 +102,25 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
+
+
+class Profile(models.Model):
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
+    image = models.ImageField(upload_to='', default='default.jpg')
+    created_at = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f"{self.user.username} Profile"
+
+    def save(self, *args, **kwargs):
+        instance = Profile.objects.filter(user=self.user).first()
+        if instance and instance.image.name != 'default.jpg':
+            os.remove(BASE_DIR / MEDIA_ROOT / instance.image.path)
+
+        super().save(*args, **kwargs)
+
+        with Image.open(self.image.path) as im:
+            if im.height > 300 or im.width > 300:
+                output_size = (300, 300)
+                im.thumbnail(output_size)
+                im.save(self.image.path)

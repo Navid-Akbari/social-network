@@ -1,25 +1,30 @@
 from django.contrib.auth.hashers import check_password
 from django.contrib.auth import get_user_model
 from django.conf import settings
-from django.test import TestCase, Client
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 from django.utils import timezone
 
-from rest_framework_simplejwt.tokens import AccessToken
 from datetime import timedelta
-import json
+from rest_framework_simplejwt.tokens import AccessToken
+from rest_framework.test import APITestCase, override_settings
+from PIL import Image
+import io
+import os
 
+
+from account.serializers import ProfileSerializer
 from account.utils import generate_verification_token
+from social_network.settings import BASE_DIR, TEST_MEDIA_ROOT
 
 User = get_user_model()
 
 
-class TestUserListCreate(TestCase):
+class TestUserListCreate(APITestCase):
 
     def setUp(self):
-        self.client = Client()
         self.list_create_url = reverse('account:users')
         self.first_test_user = User.objects.create_user(
             username='test',
@@ -47,11 +52,9 @@ class TestUserListCreate(TestCase):
                 'email': 'test2@example.com',
                 'password': 'testing321'
             }, 
-            content_type='application/json'
         )
 
         user = User.objects.get(username='test2')
-
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data['username'], 'test2')
         self.assertEqual(response.data['email'], 'test2@example.com')
@@ -64,8 +67,7 @@ class TestUserListCreate(TestCase):
                 'username': '',
                 'email': '',
                 'password': ''
-            }, 
-            content_type='application/json'
+            }
         )
 
         self.assertTrue(response.status_code, 400)
@@ -117,10 +119,9 @@ class TestUserListCreate(TestCase):
         )
 
 
-class TestUserRetrieveUpdateDestroy(TestCase):
+class TestUserRetrieveUpdateDestroy(APITestCase):
 
     def setUp(self):
-        self.client = Client()
         self.user = User.objects.create_user(
             username='test',
             email='test@example.com',
@@ -171,8 +172,7 @@ class TestUserRetrieveUpdateDestroy(TestCase):
         response = self.client.patch(
             reverse('account:users_detail', kwargs={'pk': 1}),
             data={'username': 'updatedtest', 'email': 'updatedtest@example.com'},
-            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
-            content_type='application/json'
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}'
         )
 
         self.assertEqual(response.status_code, 200)
@@ -184,8 +184,7 @@ class TestUserRetrieveUpdateDestroy(TestCase):
         response = self.client.patch(
             reverse('account:users_detail', kwargs={'pk': 1}),
             data={'username': '', 'email': ''},
-            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
-            content_type='application/json'
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}'
         )
 
         self.assertEqual(response.status_code, 400)
@@ -195,8 +194,7 @@ class TestUserRetrieveUpdateDestroy(TestCase):
         response = self.client.patch(
             reverse('account:users_detail', kwargs={'pk': 2}),
             data={'username': 'updatedtest', 'email': 'updatedtest@example.com'},
-            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
-            content_type='application/json'
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}'
         )
 
         self.assertEqual(response.status_code, 403)
@@ -214,10 +212,9 @@ class TestUserRetrieveUpdateDestroy(TestCase):
         self.assertEqual(response.status_code, 204)
 
 
-class TestUserRetrieveWithToken(TestCase):
+class TestUserRetrieveWithToken(APITestCase):
 
     def setUp(self):
-        self.client = Client()
         self.users_detail_token_url = reverse('account:users_detail_token')
         self.user = User.objects.create_user(
             username='test',
@@ -248,12 +245,97 @@ class TestUserRetrieveWithToken(TestCase):
         )
 
 
-class TestRequestEmailVerification(TestCase):
+@override_settings(MEDIA_ROOT=TEST_MEDIA_ROOT)
+class TestProfileRetrieveUpdate(APITestCase):
+
+    def setUp(self):
+        self.url = reverse('account:profile', kwargs={'pk':1})
+        self.user = User.objects.create_user(
+            username='test',
+            email='test@example.com',
+            password='testing321'
+        )
+        self.access_token = AccessToken.for_user(user=self.user)
+        self.user1 = User.objects.create_user(
+            username='test1',
+            email='test1@example.com',
+            password='testing321'
+        )
+        self.access_token1 = AccessToken.for_user(user=self.user1)
+        with Image.open(BASE_DIR / 'account/tests/cat.jpg') as im:
+            image_io = io.BytesIO()
+            im.save(image_io, format='JPEG')
+            image_io.seek(0)
+            self.image = SimpleUploadedFile('cat.jpg', image_io.read(), content_type='image/jpeg')
+
+    def test_unauthenticated_request(self):
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.data['detail'], 'Authentication credentials were not provided.')
+
+    def test_unauthorized_request(self):
+        response = self.client.put(
+            self.url,
+            data={'image': self.image},
+            format='multipart',
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token1}'
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertAlmostEqual(response.data['detail'], 'User does not have permission to access this object.')
+
+    def test_valid_put_request(self):
+        response = self.client.put(
+            self.url,
+            data={'image': self.image},
+            format='multipart',
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('image', response.data)
+        self.assertTrue(os.path.exists(TEST_MEDIA_ROOT / 'cat.jpg'))
+
+    def test_invalid_image_data(self):
+        with open(BASE_DIR / 'account/tests/file.txt', 'rb') as f:
+            invalid_image_data = f.read()
+        image = SimpleUploadedFile('test.jpg', invalid_image_data, content_type='image/jpeg')
+        response = self.client.put(
+            self.url,
+            data={'image': image},
+            format='multipart',
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}'
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            str(response.data['image'][0]), 
+            'Upload a valid image. The file you uploaded was either not an image or a corrupted image.'
+        )
+
+    def test_valid_get_request(self):
+        response = self.client.get(
+            self.url,
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}'
+        )
+
+        self.assertTrue(response.status_code, 200)
+        self.assertIn('user', response.data)
+        self.assertIn('image', response.data)
+
+    def tearDown(self):
+        for file in ['cat.jpg']:
+            if os.path.exists(TEST_MEDIA_ROOT / file):
+                os.remove(TEST_MEDIA_ROOT / file)
+
+        return super().tearDown()
+
+class TestRequestEmailVerification(APITestCase):
 
     def setUp(self):
         settings.EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
         self.request_email_verification_url = reverse('account:request_email_verification')
-        self.client = Client()
         self.user = User.objects.create_user(
             username='test',
             email='test@example.com',
@@ -296,7 +378,7 @@ class TestRequestEmailVerification(TestCase):
         self.assertEqual(response.data['error'], 'An email has been sent recently.')
 
 
-class TestVerifyEmail(TestCase):
+class TestVerifyEmail(APITestCase):
 
     def setUp(self):
         self.verify_email_url = reverse('account:verify_email')
@@ -314,8 +396,7 @@ class TestVerifyEmail(TestCase):
 
         response = self.client.post(
             self.verify_email_url,
-            data={'token': self.verification_token, 'uidb64': self.uidb64},
-            content_type='application/json'
+            data={'token': self.verification_token, 'uidb64': self.uidb64}
         )
 
         self.assertEqual(response.status_code, 200)
@@ -333,8 +414,7 @@ class TestVerifyEmail(TestCase):
 
         response = self.client.post(
             self.verify_email_url,
-            data={'token': self.verification_token, 'uidb64': self.uidb64},
-            content_type='application/json'
+            data={'token': self.verification_token, 'uidb64': self.uidb64}
         )
 
         self.assertEqual(response.status_code, 400)
@@ -346,8 +426,7 @@ class TestVerifyEmail(TestCase):
 
         response = self.client.post(
             self.verify_email_url,
-            data={'token': self.verification_token, 'uidb64': self.uidb64},
-            content_type='application/json'
+            data={'token': self.verification_token, 'uidb64': self.uidb64}
         )
 
         self.assertEqual(response.status_code, 400)
@@ -356,8 +435,7 @@ class TestVerifyEmail(TestCase):
     def test_wrong_token(self):
         response = self.client.post(
             self.verify_email_url,
-            data={'token': 'abcd', 'uidb64': self.uidb64},
-            content_type='application/json'
+            data={'token': 'abcd', 'uidb64': self.uidb64}
         )
 
         self.assertEqual(response.status_code, 400)
@@ -366,20 +444,18 @@ class TestVerifyEmail(TestCase):
     def test_bad_uidb64(self):
         response = self.client.post(
             self.verify_email_url,
-            data={'token': self.verification_token, 'uidb64': 'abcd'},
-            content_type='application/json'
+            data={'token': self.verification_token, 'uidb64': 'abcd'}
         )
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data['error'], 'Bad uidb64.')
 
 
-class TestRequestPasswordReset(TestCase):
+class TestRequestPasswordReset(APITestCase):
 
     def setUp(self):
         settings.EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
         self.request_password_reset_url = reverse('account:request_password_reset')
-        self.client = Client()
         self.user = User.objects.create_user(
             username='test',
             email='test@example.com',
@@ -389,8 +465,7 @@ class TestRequestPasswordReset(TestCase):
     def test_valid(self):
         response = self.client.post(
             self.request_password_reset_url,
-            data={'email': 'test@example.com'},
-            content_type='application/json'
+            data={'email': 'test@example.com'}
         )
 
         self.assertEqual(response.status_code, 200)
@@ -429,7 +504,7 @@ The ones with through_email at the end are as the name suggests, for requests th
 by requesting an email. The ones that end with through_token, are testing part of the view that
 handles authenticated requests.
 """
-class TestResetPassword(TestCase):
+class TestResetPassword(APITestCase):
 
     def setUp(self):
         self.reset_password_url = reverse('account:reset_password')
@@ -452,8 +527,7 @@ class TestResetPassword(TestCase):
                 'uidb64': self.uidb64,
                 'password1': 'updatedtesting321',
                 'password2': 'updatedtesting321'
-            },
-            content_type='application/json'
+            }
         )
 
         self.assertEqual(response.status_code, 200)
@@ -476,8 +550,7 @@ class TestResetPassword(TestCase):
                 'uidb64': self.uidb64,
                 'password1': 'updatedtesting321',
                 'password2': 'updatedtesting4321'
-            },
-            content_type='application/json'
+            }
         )
 
         self.assertEqual(response.status_code, 400)
@@ -491,8 +564,7 @@ class TestResetPassword(TestCase):
                 'uidb64': 'abcd',
                 'password1': 'updatedtesting321',
                 'password2': 'updatedtesting321'
-            },
-            content_type='application/json'
+            }
         )
 
         self.assertEqual(response.status_code, 400)
@@ -506,8 +578,7 @@ class TestResetPassword(TestCase):
                 'uidb64': self.uidb64 + 'a',
                 'password1': 'updatedtesting321',
                 'password2': 'updatedtesting321'
-            },
-            content_type='application/json'
+            }
         )
 
         self.assertEqual(response.status_code, 400)
@@ -524,8 +595,7 @@ class TestResetPassword(TestCase):
                 'uidb64': self.uidb64,
                 'password1': 'updatedtesting321',
                 'password2': 'updatedtesting321'
-            },
-            content_type='application/json'
+            }
         )
 
         self.assertEqual(response.status_code, 400)
@@ -542,8 +612,7 @@ class TestResetPassword(TestCase):
                 'uidb64': self.uidb64,
                 'password1': 'updatedtesting321',
                 'password2': 'updatedtesting321'
-            },
-            content_type='application/json'
+            }
         )
 
         self.assertEqual(response.status_code, 400)
@@ -557,8 +626,7 @@ class TestResetPassword(TestCase):
                 'password1': 'updatedtesting321',
                 'password2': 'updatedtesting321',
             },
-            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
-            content_type='application/json'
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}'
         )
 
         self.assertEqual(response.status_code, 200)
@@ -572,8 +640,7 @@ class TestResetPassword(TestCase):
                 'password1': 'updatedtesting321',
                 'password2': 'updatedtesting321',
             },
-            HTTP_AUTHORIZATION=f'Bearer abcd',
-            content_type='application/json'
+            HTTP_AUTHORIZATION=f'Bearer abcd'
         )
 
         self.assertEqual(response.status_code, 400)
@@ -582,8 +649,7 @@ class TestResetPassword(TestCase):
     def test_missing_params_through_token(self):
         response = self.client.post(
             self.reset_password_url,
-            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
-            content_type='application/json'
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}'
         )
 
         self.assertEqual(response.status_code, 400)
@@ -600,8 +666,7 @@ class TestResetPassword(TestCase):
                 'password1': 'updatedtesting321',
                 'password2': 'updatedtesting321',
             },
-            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
-            content_type='application/json'
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}'
         )
 
         self.assertEqual(response.status_code, 400)
@@ -615,8 +680,7 @@ class TestResetPassword(TestCase):
                 'password1': 'updatedtesting321',
                 'password2': 'updatedtesting',
             },
-            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
-            content_type='application/json'
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}'
         )
 
         self.assertEqual(response.status_code, 400)

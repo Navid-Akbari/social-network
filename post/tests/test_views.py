@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
-from django.test import TestCase, Client
 from django.urls import reverse
 
+from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import AccessToken
 import json
 
@@ -10,10 +10,9 @@ from post.models import Post, Like, Comment
 User = get_user_model()
 
 
-class TestPostListCreate(TestCase):
+class TestPostListCreate(APITestCase):
 
     def setUp(self):
-        self.client = Client()
         self.url = reverse('post:posts')
         self.user = User.objects.create_user(
             username='test',
@@ -44,8 +43,7 @@ class TestPostListCreate(TestCase):
             data = {
                 'body': 'Test post body.'
             },
-            HTTP_AUTHORIZATION=f'Bearer {self.user_access_token}',
-            content_type='application/json'
+            HTTP_AUTHORIZATION=f'Bearer {self.user_access_token}'
         )
 
         self.assertEqual(response.status_code, 201)
@@ -57,8 +55,7 @@ class TestPostListCreate(TestCase):
             self.url,
             data = {
                 'body': 'Test post body.'
-            },
-            content_type='application/json'
+            }
         )
 
         self.assertEqual(response.status_code, 401)
@@ -77,8 +74,7 @@ class TestPostListCreate(TestCase):
                 'abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij'
                 'abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij'
             },
-            HTTP_AUTHORIZATION=f'Bearer {self.user_access_token}',
-            content_type='application/json'
+            HTTP_AUTHORIZATION=f'Bearer {self.user_access_token}'
         )
 
         self.assertEqual(response.status_code, 400)
@@ -115,10 +111,9 @@ class TestPostListCreate(TestCase):
         self.assertEqual(response.data['results'][0]['body'], 'User1 test post body.')
 
 
-class TestPostRetrieveUpdateDestroy(TestCase):
+class TestPostRetrieveUpdateDestroy(APITestCase):
     
     def setUp(self):
-        self.client = Client()
         self.user = User.objects.create_user(
             username='test',
             email='test@example.com',
@@ -144,8 +139,7 @@ class TestPostRetrieveUpdateDestroy(TestCase):
         response = self.client.patch(
             reverse('post:posts_detail', kwargs={'pk': 2}),
             data={'body': 'Updated test1 post body.'},
-            HTTP_AUTHORIZATION=f'Bearer {self.user_access_token}',
-            content_type='application/json'
+            HTTP_AUTHORIZATION=f'Bearer {self.user_access_token}'
         )
 
         self.assertEqual(response.status_code, 403)
@@ -157,8 +151,7 @@ class TestPostRetrieveUpdateDestroy(TestCase):
     def test_unauthorized_request(self):
         response = self.client.patch(
             reverse('post:posts_detail', kwargs={'pk': 2}),
-            data={'body': 'Updated test1 post body.'},
-            content_type='application/json'
+            data={'body': 'Updated test1 post body.'}
         )
 
         self.assertEqual(response.status_code, 401)
@@ -190,8 +183,7 @@ class TestPostRetrieveUpdateDestroy(TestCase):
         response = self.client.patch(
             reverse('post:posts_detail', kwargs={'pk': 2}),
             data={'body': 'Updated test1 post body.'},
-            HTTP_AUTHORIZATION=f'Bearer {self.user1_access_token}',
-            content_type='application/json'
+            HTTP_AUTHORIZATION=f'Bearer {self.user1_access_token}'
         )
 
         updated_post = Post.objects.get(pk=2)
@@ -203,8 +195,7 @@ class TestPostRetrieveUpdateDestroy(TestCase):
         response = self.client.patch(
             reverse('post:posts_detail', kwargs={'pk': 2}),
             data={'body': ''},
-            HTTP_AUTHORIZATION=f'Bearer {self.user1_access_token}',
-            content_type='application/json'
+            HTTP_AUTHORIZATION=f'Bearer {self.user1_access_token}'
         )
 
         self.assertEqual(response.status_code, 400)
@@ -219,10 +210,9 @@ class TestPostRetrieveUpdateDestroy(TestCase):
         self.assertEqual(response.status_code, 204)
 
 
-class TestLikeCreate(TestCase):
+class TestLikeCreate(APITestCase):
     
     def setUp(self):
-        self.client = Client()
         self.url = reverse('post:likes')
         self.user = User.objects.create_user(
             username='test',
@@ -260,8 +250,7 @@ class TestLikeCreate(TestCase):
                 'post': 1,
                 'is_like': True
             },
-            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
-            content_type='application/json'
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}'
         )
 
         self.assertEqual(response.status_code, 201)
@@ -279,8 +268,7 @@ class TestLikeCreate(TestCase):
                 'post': 1,
                 'is_like': 'badData'
             },
-            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
-            content_type='application/json'
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}'
         )
 
         self.assertEqual(response.status_code, 400)
@@ -293,8 +281,7 @@ class TestLikeCreate(TestCase):
                 'post': 'badData',
                 'is_like': True
             },
-            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
-            content_type='application/json'
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}'
         )
 
         self.assertEqual(response.status_code, 400)
@@ -309,8 +296,7 @@ class TestLikeCreate(TestCase):
             data={
                 'post': 1,
                 'is_like': True
-            },
-            content_type='application/json'
+            }
         )
 
         self.assertEqual(response.status_code, 401)
@@ -329,8 +315,7 @@ class TestLikeCreate(TestCase):
                 'post': 2,
                 'is_like': False
             },
-            HTTP_AUTHORIZATION=f'Bearer {self.user1_access_token}',
-            content_type='application/json'
+            HTTP_AUTHORIZATION=f'Bearer {self.user1_access_token}'
         )
 
         self.assertEqual(response.status_code, 204)
@@ -348,8 +333,7 @@ class TestLikeCreate(TestCase):
                 'post': 2,
                 'is_like': True
             },
-            HTTP_AUTHORIZATION=f'Bearer {self.user1_access_token}',
-            content_type='application/json'
+            HTTP_AUTHORIZATION=f'Bearer {self.user1_access_token}'
         )
 
         self.assertEqual(response.status_code, 201)
@@ -359,10 +343,9 @@ class TestLikeCreate(TestCase):
         self.assertEqual(post.dislikes_count, 0)
 
 
-class TestCommentListCreate(TestCase):
+class TestCommentListCreate(APITestCase):
 
     def setUp(self):
-        self.client = Client()
         self.url = reverse('post:comments')
         self.user = User.objects.create_user(
             username='test',
@@ -399,8 +382,7 @@ class TestCommentListCreate(TestCase):
                 'post': 1,
                 'body': 'Test comment body.'
             },
-            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
-            content_type='application/json'
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}'
         )
 
         self.assertEqual(response.status_code, 201)
@@ -415,8 +397,7 @@ class TestCommentListCreate(TestCase):
                 'post': 2,
                 'body': 'Test comment body.'
             },
-            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
-            content_type='application/json'
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}'
         )
 
         self.assertEqual(response.status_code, 400)
@@ -429,8 +410,7 @@ class TestCommentListCreate(TestCase):
                 'post': 1,
                 'body': ''
             },
-            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
-            content_type='application/json'
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}'
         )
 
         self.assertEqual(response.status_code, 400)
@@ -518,10 +498,9 @@ class TestCommentListCreate(TestCase):
         self.assertEqual(str(response.data['detail']), 'Invalid request parameters.')
 
 
-class TestCommentRetrieveUpdateDestroy(TestCase):
+class TestCommentRetrieveUpdateDestroy(APITestCase):
 
     def setUp(self):
-        self.client = Client()
         self.user = User.objects.create_user(
             username='test',
             email='test@example.com',
@@ -551,8 +530,7 @@ class TestCommentRetrieveUpdateDestroy(TestCase):
     def test_unauthenticated_request(self):
         response = self.client.patch(
             reverse('post:comments_detail', kwargs={'pk':1}),
-            data={'body': 'Updated comment body.'},
-            content_type='application/json'
+            data={'body': 'Updated comment body.'}
         )
 
         self.assertEqual(response.status_code, 401)
@@ -566,8 +544,7 @@ class TestCommentRetrieveUpdateDestroy(TestCase):
         response = self.client.patch(
             reverse('post:comments_detail', kwargs={'pk':1}),
             data={'body': 'Updated comment body.'},
-            HTTP_AUTHORIZATION= f'Bearer {self.access_token1}',
-            content_type='application/json'
+            HTTP_AUTHORIZATION= f'Bearer {self.access_token1}'
         )
 
 
@@ -612,8 +589,7 @@ class TestCommentRetrieveUpdateDestroy(TestCase):
             data={
                 'body': 'Updated comment body',
             },
-            HTTP_AUTHORIZATION= f'Bearer {self.access_token}',
-            content_type='application/json'
+            HTTP_AUTHORIZATION= f'Bearer {self.access_token}'
         )
 
         self.assertEqual(response.status_code, 200)
@@ -623,8 +599,7 @@ class TestCommentRetrieveUpdateDestroy(TestCase):
         response = self.client.patch(
             reverse('post:comments_detail', kwargs={'pk':1}),
             data={},
-            HTTP_AUTHORIZATION= f'Bearer {self.access_token}',
-            content_type='application/json'
+            HTTP_AUTHORIZATION= f'Bearer {self.access_token}'
         )
 
         self.assertEqual(response.status_code, 400)

@@ -1,7 +1,15 @@
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.auth.hashers import check_password
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, TransactionTestCase, override_settings
+
+from PIL import Image
+import io
+import os
+
+from social_network.settings import BASE_DIR, TEST_MEDIA_ROOT
+from account.models import Profile
 
 User = get_user_model()
 
@@ -145,7 +153,7 @@ class TestUserModel(TestCase):
             )
 
         self.assertEqual(dict(error.exception)['first_name'][0], 'last_name is missing.')
-    
+
     def test_lastname_must_have_firstname(self):
         with self.assertRaises(ValidationError) as error:
             User.objects.create_user(
@@ -249,3 +257,55 @@ class TestUserModel(TestCase):
             dict(error.exception)['email'][0],
             'Custom user with this Email already exists.'
         )
+
+
+@override_settings(MEDIA_ROOT=TEST_MEDIA_ROOT)
+class TestProfileModel(TransactionTestCase):
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='test',
+            email='test@example.com',
+            password='testing321'
+        )
+        with Image.open(BASE_DIR / 'account/tests/cat.jpg') as im:
+            image_io = io.BytesIO()
+            im.save(image_io, format='JPEG')
+            image_io.seek(0)
+            self.image = SimpleUploadedFile('cat.jpg', image_io.read(), content_type='image/jpeg')
+        self.user_profile = Profile.objects.get(user=self.user)
+
+    def test_valid_image(self):
+        self.assertEqual(self.user_profile.image.name, 'default.jpg')
+
+        self.user_profile.image = self.image
+        self.user_profile.save()
+
+        self.updated_profile = Profile.objects.get(user=self.user)
+        self.assertEqual(self.updated_profile.image.name, 'cat.jpg')
+        with Image.open(TEST_MEDIA_ROOT / 'cat.jpg') as im:
+            self.assertTrue(im.size[0] <= 300 )
+            self.assertTrue(im.size[1] <= 300 )
+
+    def test_new_upload_deletes_old_image(self):
+        self.user_profile.image = self.image
+        self.user_profile.save()
+        self.assertEqual(self.user_profile.image.path, os.path.join(TEST_MEDIA_ROOT / 'cat.jpg'))
+
+        with Image.open(BASE_DIR / 'account/tests/cat.jpg') as im:
+            image_io = io.BytesIO()
+            im.save(image_io, format='JPEG')
+            image_io.seek(0)
+            image = SimpleUploadedFile('replaced_cat.jpg', image_io.read(), content_type='image/jpeg')
+        self.user_profile.image = image
+        self.user_profile.save()
+
+        self.assertFalse(os.path.exists(TEST_MEDIA_ROOT / 'cat.jpg'))
+        self.assertTrue(os.path.exists(TEST_MEDIA_ROOT / 'replaced_cat.jpg'))
+
+    def tearDown(self):
+        for file in ['cat.jpg', 'replaced_cat.jpg']:
+            if os.path.exists(TEST_MEDIA_ROOT / file):
+                os.remove(TEST_MEDIA_ROOT / file)
+
+        return super().tearDown()

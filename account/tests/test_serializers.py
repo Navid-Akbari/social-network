@@ -1,11 +1,17 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import check_password
-from django.test import TestCase
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import TestCase, TransactionTestCase, override_settings
 
-from account.serializers import UserSerializer
+from PIL import Image
+import io
+import os
+
+from account.serializers import UserSerializer, ProfileSerializer
+from account.models import Profile
+from social_network.settings import BASE_DIR, TEST_MEDIA_ROOT
 
 User = get_user_model()
-
 
 class TestUserSerializer(TestCase):
 
@@ -243,3 +249,33 @@ class TestUserSerializer(TestCase):
             str(serializer.errors['email'][0]),
             'custom user with this email already exists.'
         )
+
+
+@override_settings(MEDIA_ROOT=TEST_MEDIA_ROOT)
+class TestProfileSerializer(TransactionTestCase):
+    
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='test',
+            email='test@example.com',
+            password='testing321'
+        )
+        with Image.open(BASE_DIR / 'account/tests/cat.jpg') as im:
+            image_io = io.BytesIO()
+            im.save(image_io, format='JPEG')
+            image_io.seek(0)
+            self.image = SimpleUploadedFile('cat.jpg', image_io.read(), content_type='image/jpeg')
+        self.profile = Profile.objects.get(user=self.user)
+
+    def test_valid(self):
+        serializer = ProfileSerializer(self.profile, data={'image': self.image})
+
+        self.assertTrue(serializer.is_valid())
+        serializer.save()
+        self.assertTrue(os.path.exists(TEST_MEDIA_ROOT / 'cat.jpg'))
+
+    def tearDown(self):
+        for file in ['cat.jpg']:
+            if os.path.exists(TEST_MEDIA_ROOT / file):
+                os.remove(TEST_MEDIA_ROOT / file)
+        return super().tearDown()

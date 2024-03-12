@@ -36,8 +36,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework_simplejwt',
-    'corsheaders',
-    'django_filters',
+    'django_cleanup.apps.CleanupConfig',
     'account',
     'post',
 ]
@@ -50,16 +49,19 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-
-    'corsheaders.middleware.CorsMiddleware'
 ]
+
+# Rest_framework settings
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    'TEST_REQUEST_DEFAULT_FORMAT': 'json',
     'PAGE_SIZE': '10'
 }
+
+# JWT tokens settings
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
@@ -179,3 +181,8 @@ EMAIL_HOST_USER = EMAIL_HOST_USER
 EMAIL_HOST_PASSWORD = EMAIL_HOST_PASSWORD
 
 CORS_ORIGIN_ALLOW_ALL = True
+
+MEDIA_ROOT = BASE_DIR / 'media/'
+MEDIA_URL = '/media/'
+TEST_MEDIA_ROOT = BASE_DIR / 'account/tests/temp_media/'
+

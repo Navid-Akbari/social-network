@@ -16,7 +16,8 @@ class PostSerializer(serializers.ModelSerializer):
         fields = ['id', 'user', 'body', 'created_at', 'last_edited']
         extra_kwargs = {
             'created_at': {'read_only': True},
-            'last_edited': {'read_only': True}
+            'last_edited': {'read_only': True},
+            'id': {'read_only': True}
         }
 
     def update(self, instance, validated_data):
@@ -54,7 +55,8 @@ class CommentSerializer(serializers.ModelSerializer):
         model = Comment
         fields = ['id', 'post', 'user', 'body', 'created_at']
         extra_kwargs = {
-            'created_at': {'read_only': True}
+            'created_at': {'read_only': True},
+            'id': {'read_only': True}
         } 
     
     def update(self, instance, validated_data):

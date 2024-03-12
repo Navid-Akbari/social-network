@@ -22,6 +22,7 @@ def name_length_validation(name):
     if len(name) < 3:
         raise ValidationError('This field cannot be less than 3 characters.')
 
+
 def firstname_lastname_must_both_exist_validation(user):
     if user.first_name:
         if not user.last_name:

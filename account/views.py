@@ -11,15 +11,18 @@ from rest_framework.decorators import APIView
 from rest_framework.generics import (
     ListCreateAPIView,
     RetrieveUpdateDestroyAPIView,
+    RetrieveUpdateAPIView,
     GenericAPIView
 )
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from django_filters.rest_framework import DjangoFilterBackend
 
 from .permissions import IsTheSameUserOrAdmin
-from .serializers import UserSerializer
+from .serializers import UserSerializer, ProfileSerializer
+from .models import Profile
 from .utils import (
     generate_verification_token,
     send_email_verification_email,
@@ -27,6 +30,7 @@ from .utils import (
     generate_token_expiration_time,
     token_has_expired
 )
+from post.permissions import IsOwnerOrAdmin
 
 User = get_user_model()
 
@@ -83,6 +87,18 @@ class UserRetrieveWithToken(GenericAPIView):
         serializer = self.serializer_class(request.user)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+
+class ProfileRetrieveUpdate(RetrieveUpdateAPIView):
+    serializer_class = ProfileSerializer
+    parser_classes = [MultiPartParser, FormParser]
+    http_method_names = ['put', 'get']
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsOwnerOrAdmin]
+    lookup_field = 'pk'
+    lookup_url_kwarg = 'pk'
+
+    def get_queryset(self):
+        return Profile.objects.filter(user_id=self.kwargs['pk'])
 
 class RequestEmailVerification(APIView):
     authentication_classes = [JWTAuthentication]
