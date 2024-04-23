@@ -1,13 +1,18 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import check_password
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase, TransactionTestCase, override_settings
+from django.test import TestCase, override_settings
 
 from PIL import Image
 import io
 import os
 
-from account.serializers import UserSerializer, ProfileSerializer
+from account.serializers import (
+    UserSerializer,
+    ProfileSerializer,
+    FriendRequestSerializer,
+    FriendSerializer
+)
 from account.models import Profile
 from social_network.settings import BASE_DIR, TEST_MEDIA_ROOT
 
@@ -54,9 +59,9 @@ class TestUserSerializer(TestCase):
         )
 
         self.assertFalse(serializer.is_valid())
-        self.assertEqual(str(serializer.errors['username'][0]), 'This field may not be blank.')
-        self.assertEqual(str(serializer.errors['email'][0]), 'This field may not be blank.')
-        self.assertEqual(str(serializer.errors['password'][0]), 'This field may not be blank.')
+        self.assertEqual(serializer.errors['username'][0], 'This field may not be blank.')
+        self.assertEqual(serializer.errors['email'][0], 'This field may not be blank.')
+        self.assertEqual(serializer.errors['password'][0], 'This field may not be blank.')
 
     def test_username_password_firstname_lastname_min_length_validation(self):
         serializer = UserSerializer(
@@ -71,7 +76,7 @@ class TestUserSerializer(TestCase):
 
         self.assertFalse(serializer.is_valid())
         self.assertEqual(
-            str(serializer.errors['username'][0]), 
+            serializer.errors['username'][0], 
             'This field cannot be less than 3 characters.'
         )
         self.assertEqual(
@@ -82,11 +87,11 @@ class TestUserSerializer(TestCase):
             ]
         )
         self.assertEqual(
-            str(serializer.errors['first_name'][0]), 
+            serializer.errors['first_name'][0], 
             'This field cannot be less than 3 characters.'
         )
         self.assertEqual(
-            str(serializer.errors['last_name'][0]), 
+            serializer.errors['last_name'][0], 
             'This field cannot be less than 3 characters.'
         )
 
@@ -103,15 +108,15 @@ class TestUserSerializer(TestCase):
 
             self.assertFalse(serializer.is_valid())
             self.assertEqual(
-                str(serializer.errors['username'][0]), 
+                serializer.errors['username'][0], 
                 'Ensure this field has no more than 50 characters.'
             )
             self.assertEqual(
-                str(serializer.errors['email'][0]), 
+                serializer.errors['email'][0], 
                 'Ensure this field has no more than 50 characters.'
             )
             self.assertEqual(
-                str(serializer.errors['password'][0]),
+                serializer.errors['password'][0],
                 'Ensure this field has no more than 128 characters.'
             )
 
@@ -126,7 +131,7 @@ class TestUserSerializer(TestCase):
 
         self.assertFalse(serializer.is_valid())
         self.assertEqual(
-            str(serializer.errors['username'][0]), 
+            serializer.errors['username'][0], 
             'Enter a valid username. This value may contain only letters,'
             ' numbers, and @/./+/-/_ characters.'
         )
@@ -141,7 +146,7 @@ class TestUserSerializer(TestCase):
             )
 
         self.assertFalse(serializer.is_valid())
-        self.assertEqual(str(serializer.errors['email'][0]), 'Enter a valid email address.')
+        self.assertEqual(serializer.errors['email'][0], 'Enter a valid email address.')
 
     def testadditional_valid_info_and_capitaliziation_of_firstname_lastname(self):
         serializer = UserSerializer(
@@ -178,7 +183,7 @@ class TestUserSerializer(TestCase):
         )
 
         self.assertFalse(serializer.is_valid())
-        self.assertEqual(str(serializer.errors['first_name'][0]), 'last_name is missing.')
+        self.assertEqual(serializer.errors['first_name'][0], 'last_name is missing.')
     
     def test_lastname_must_have_firstname(self):
         serializer = UserSerializer(
@@ -190,7 +195,7 @@ class TestUserSerializer(TestCase):
         )
 
         self.assertFalse(serializer.is_valid())
-        self.assertEqual(str(serializer.errors['last_name'][0]), 'first_name is missing.')
+        self.assertEqual(serializer.errors['last_name'][0], 'first_name is missing.')
 
     def test_firstname_lastname_invalid_format(self):
         serializer = UserSerializer(
@@ -206,11 +211,11 @@ class TestUserSerializer(TestCase):
         self.assertFalse(serializer.is_valid())
         self.assertFalse(serializer.is_valid())
         self.assertEqual(
-            str(serializer.errors['last_name'][0]),
+            serializer.errors['last_name'][0],
             'First name and last name can only contain letters.'
         )
         self.assertEqual(
-            str(serializer.errors['last_name'][0]),
+            serializer.errors['last_name'][0],
             'First name and last name can only contain letters.'
         )
 
@@ -226,7 +231,7 @@ class TestUserSerializer(TestCase):
 
         self.assertFalse(serializer.is_valid())
         self.assertEqual(
-            str(serializer.errors['phone_number'][0]),
+            serializer.errors['phone_number'][0],
             'Phone number must be entered in the format: "+999999999".'
             ' Up to 15 digits allowed.'
         )
@@ -242,17 +247,17 @@ class TestUserSerializer(TestCase):
         
         self.assertFalse(serializer.is_valid())
         self.assertEqual(
-            str(serializer.errors['username'][0]),
+            serializer.errors['username'][0],
             'custom user with this username already exists.'
         )
         self.assertEqual(
-            str(serializer.errors['email'][0]),
+            serializer.errors['email'][0],
             'custom user with this email already exists.'
         )
 
 
 @override_settings(MEDIA_ROOT=TEST_MEDIA_ROOT)
-class TestProfileSerializer(TransactionTestCase):
+class TestProfileSerializer(TestCase):
     
     def setUp(self):
         self.user = User.objects.create_user(
@@ -279,3 +284,141 @@ class TestProfileSerializer(TransactionTestCase):
             if os.path.exists(TEST_MEDIA_ROOT / file):
                 os.remove(TEST_MEDIA_ROOT / file)
         return super().tearDown()
+
+
+class TestFriendRequestSerializer(TestCase):
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='test',
+            email='test@gmail.com',
+            password='testing321'
+        )
+        self.user1 = User.objects.create_user(
+            username='test1',
+            email='test1@gmail.com',
+            password='testing321'
+        )
+
+    def test_valid_input(self):
+        serializer = FriendRequestSerializer(
+            data={
+                'from_user': self.user.pk,
+                'to_user': self.user1.pk
+            }
+        )
+
+        self.assertTrue(serializer.is_valid())
+        friend_request = serializer.save()
+        self.assertEqual(friend_request.from_user, self.user)
+        self.assertEqual(friend_request.to_user, self.user1)
+    
+    def test_invalid_fromuser_value(self):
+        serializer = FriendRequestSerializer(
+            data={
+                'from_user': '',
+                'to_user': self.user1.pk
+            }
+        )
+
+        self.assertFalse(serializer.is_valid())
+        self.assertEqual(serializer.errors['from_user'][0], 'This field may not be null.')
+
+    def test_unique_together_constraint(self):
+        first_serializer = FriendRequestSerializer(
+            data={
+                'from_user': self.user.pk,
+                'to_user': self.user1.pk
+            }
+        )
+        second_serializer = FriendRequestSerializer(
+            data={
+                'from_user': self.user.pk,
+                'to_user': self.user1.pk
+            }
+        )
+
+        self.assertTrue(first_serializer.is_valid())
+        first_serializer.save()
+        self.assertFalse(second_serializer.is_valid())
+        self.assertEqual(
+            second_serializer.errors['non_field_errors'][0],
+            'The fields from_user, to_user must make a unique set.'
+        )
+
+    def test_user_friends_themselves(self):
+        serializer = FriendRequestSerializer(
+            data={
+                'from_user': self.user.pk,
+                'to_user': self.user.pk
+            }
+        )
+        
+        self.assertFalse(serializer.is_valid())
+        self.assertEqual(serializer.errors['error'][0], 'Users cannot friend themselves.')
+
+
+class TestFriendSerializer(TestCase):
+    
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='test',
+            email='test@gmail.com',
+            password='testing321'
+        )
+        self.user1 = User.objects.create_user(
+            username='test1',
+            email='test1@gmail.com',
+            password='testing321'
+        )
+
+    def test_valid(self):
+        serializer = FriendSerializer(
+            data={
+                'first_user': self.user.pk,
+                'second_user': self.user1.pk
+            }
+        )
+
+        self.assertTrue(serializer.is_valid())
+        friend = serializer.save()
+        self.assertEqual(friend.first_user, self.user)
+        self.assertEqual(friend.second_user, self.user1)
+
+    def test_invalid_first_user_and_second_user(self):
+        serializer = FriendSerializer(
+            data={
+                'first_user': '',
+                'second_user': self.user1
+            }
+        )
+
+        self.assertFalse(serializer.is_valid())
+        self.assertEqual(serializer.errors['first_user'][0], 'This field may not be null.')
+        self.assertEqual(
+            serializer.errors['second_user'][0],
+            'Incorrect type. Expected pk value, received CustomUser.'
+        )
+
+    def test_duplicate_friend_instance(self):
+        serializer = FriendSerializer(
+            data={
+                'first_user': self.user.pk,
+                'second_user': self.user1.pk
+            }
+        )
+
+        serializer1 = FriendSerializer(
+            data={
+                'first_user': self.user.pk,
+                'second_user': self.user1.pk
+            }
+        )
+
+        serializer.is_valid()
+        serializer.save()
+        self.assertFalse(serializer1.is_valid())
+        self.assertEqual(
+            serializer1.errors['non_field_errors'][0],
+            'The fields first_user, second_user must make a unique set.'
+        )

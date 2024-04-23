@@ -119,10 +119,10 @@ class TestLikeSerializer(TestCase):
         )
 
         self.assertTrue(serializer.is_valid())
-        Like = serializer.save()
-        self.assertIsNotNone(Like)
-        self.assertEqual(Like.user.pk, 2)
-        self.assertEqual(Like.user.username, 'test1')
+        like = serializer.save()
+        self.assertIsNotNone(like)
+        self.assertEqual(like.user.pk, 2)
+        self.assertEqual(like.user.username, 'test1')
 
     def test_empty_user(self):
         serializer = LikeSerializer(

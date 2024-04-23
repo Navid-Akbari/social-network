@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.contrib.auth.hashers import check_password
 from django.contrib.auth import get_user_model
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import force_str
@@ -21,8 +22,13 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from django_filters.rest_framework import DjangoFilterBackend
 
 from .permissions import IsTheSameUserOrAdmin
-from .serializers import UserSerializer, ProfileSerializer
-from .models import Profile
+from .serializers import (
+    UserSerializer,
+    ProfileSerializer,
+    FriendRequestSerializer,
+    FriendSerializer
+)
+from .models import Profile, FriendRequest, Friend
 from .utils import (
     generate_verification_token,
     send_email_verification_email,
@@ -99,6 +105,7 @@ class ProfileRetrieveUpdate(RetrieveUpdateAPIView):
 
     def get_queryset(self):
         return Profile.objects.filter(user_id=self.kwargs['pk'])
+
 
 class RequestEmailVerification(APIView):
     authentication_classes = [JWTAuthentication]
@@ -340,3 +347,101 @@ class ResetPassword(APIView):
             )
 
         return Response({'message': 'Password changed successfully.'}, status=status.HTTP_200_OK)
+
+
+class FriendRequestListCreateDestroy(GenericAPIView):
+    serializer_class = FriendRequestSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    def post(self, request, *args, **kwargs):
+        sender = get_object_or_404(User, pk=request.data['from_user'])
+
+        if request.user != sender:
+            return Response(
+                {'error': 'Token is not valid. It does not belong to the requestor.'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = self.get_serializer(data=request.data, many=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def delete(self, request, *args, **kwargs):
+        from_user = request.data.get('from_user')
+        to_user = request.data.get('to_user')
+
+        try:
+            from_user = int(from_user)
+            to_user = int(to_user)
+        except Exception:
+            return Response(
+                {'error': 'Sender ID and receiver ID must be provided.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            friend_request = FriendRequest.objects.get(from_user=from_user, to_user=to_user)
+            friend_request.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except FriendRequest.DoesNotExist:
+            return Response(
+                {'error': 'Friend request not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+    def get_queryset(self):
+        user = self.request.user
+        return FriendRequest.objects.filter(Q(from_user=user) | Q(to_user=user))
+
+
+class FriendListCreateDestroy(GenericAPIView):
+    serializer_class = FriendSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        if request.user not in serializer.validated_data.values():
+            return Response({'error': ['The request was not accepted by the proper party.']}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def delete(self, request, *args, **kwargs):
+        if 'user' not in request.data:
+            return Response({'error': ['Invalid data format.']}, status=status.HTTP_400_BAD_REQUEST)
+
+        if type(request.data['user']) != int:
+            return Response({'error': ['Invalid data format.']}, status=status.HTTP_400_BAD_REQUEST)
+
+        friendship_instance = self.get_queryset().filter(
+            Q(first_user=request.data['user']) | Q(second_user=request.data['user'])
+        )
+
+        if friendship_instance.exists():
+            friendship_instance.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        return Response(
+            {'error': ['Current user is not a friend with the given user.']},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = Friend.objects.filter(Q(first_user=user) | Q(second_user=user))
+        return queryset

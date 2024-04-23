@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from rest_framework import serializers
 from PIL import Image
 
-from account.models import Profile
+from account.models import Profile, FriendRequest, Friend
 
 User = get_user_model()
 
@@ -65,3 +65,23 @@ class ProfileSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Failed to process image.')
 
         return attrs
+
+
+class FriendRequestSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        model = FriendRequest
+        fields = ['from_user', 'to_user']
+
+    def validate(self, attrs):
+        if attrs.get('from_user') == attrs.get('to_user'):
+            raise serializers.ValidationError({'error':'Users cannot friend themselves.'})
+        
+        return super().validate(attrs)
+
+
+class FriendSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Friend
+        fields = ['first_user', 'second_user']

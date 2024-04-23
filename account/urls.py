@@ -22,5 +22,7 @@ urlpatterns = [
     ),
     path('verify-email/', views.VerifyEmail.as_view(), name='verify_email'),
     path('request-password-reset/', views.RequestPasswordReset.as_view(), name='request_password_reset'),
-    path('reset-password/', views.ResetPassword.as_view(), name='reset_password')
+    path('reset-password/', views.ResetPassword.as_view(), name='reset_password'),
+    path('friend_request/', views.FriendRequestListCreateDestroy.as_view(), name='friend_request'),
+    path('manage_friends/', views.FriendListCreateDestroy.as_view(), name='manage_friends')
 ]

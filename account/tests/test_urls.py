@@ -47,6 +47,15 @@ class TestUrls(SimpleTestCase):
         url = reverse('account:request_password_reset')
         self.assertEqual(resolve(url).func.view_class, views.RequestPasswordReset)
 
-    def test_reset_password_is_resolved(self):
+    def test_reset_password_url_is_resolved(self):
         url = reverse('account:reset_password')
         self.assertEqual(resolve(url).func.view_class, views.ResetPassword)
+
+    def test_friend_request_url_is_resolved(self):
+        url = reverse('account:friend_request')
+        self.assertEqual(resolve(url).func.view_class, views.FriendRequestListCreateDestroy)
+
+    def test_friend_url_is_resolved(self):
+        url = reverse('account:manage_friends')
+        self.assertEqual(resolve(url).func.view_class, views.FriendListCreateDestroy)
+

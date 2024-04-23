@@ -29,8 +29,6 @@ class CustomUserManager(BaseUserManager):
             if field in extra_fields:
                 setattr(user, field, extra_fields[field])
 
-        user.full_clean()
-
         if user.first_name:
             if not user.last_name:
                 raise ValidationError({'first_name': 'last_name is missing.'})
@@ -124,3 +122,19 @@ class Profile(models.Model):
                 output_size = (300, 300)
                 im.thumbnail(output_size)
                 im.save(self.image.path)
+
+
+class FriendRequest(models.Model):
+    from_user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='sent_friend_request')
+    to_user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='recieved_friend_request')
+
+    class Meta:
+        unique_together = [['from_user', 'to_user']]
+
+
+class Friend(models.Model):
+    first_user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='first_friend')
+    second_user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='second_friend')
+
+    class Meta:
+        unique_together = [['first_user', 'second_user']]

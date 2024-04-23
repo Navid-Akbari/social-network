@@ -2,14 +2,15 @@ from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.auth.hashers import check_password
 from django.contrib.auth import get_user_model
-from django.test import TestCase, TransactionTestCase, override_settings
+from django.db import IntegrityError
+from django.test import TestCase, override_settings
 
 from PIL import Image
 import io
 import os
 
 from social_network.settings import BASE_DIR, TEST_MEDIA_ROOT
-from account.models import Profile
+from account.models import Profile, FriendRequest, Friend
 
 User = get_user_model()
 
@@ -36,92 +37,6 @@ class TestUserModel(TestCase):
         self.assertFalse(user.is_staff)
         self.assertFalse(user.is_superuser)
         self.assertTrue(user.is_active)
-
-    def test_missing_username_email_password(self):
-        with self.assertRaises(ValidationError) as error:
-            User.objects.create_user(
-                username='',
-                email='',
-                password=''
-            )
-
-        self.assertEqual(dict(error.exception)['username'][0], 'This field cannot be blank.')
-        self.assertEqual(dict(error.exception)['email'][0], 'This field cannot be blank.')
-        self.assertEqual(dict(error.exception)['password'][0], 'This field cannot be blank.')
-
-    def test_username_password_firstname_lastname_min_length_validation(self):
-        with self.assertRaises(ValidationError) as error:
-            User.objects.create_user(
-                username='as',
-                email='test@example.com',
-                password='test',
-                first_name='te',
-                last_name='te'
-            )
-
-        self.assertEqual(
-            dict(error.exception)['username'][0], 
-            'This field cannot be less than 3 characters.'
-        )
-        self.assertEqual(
-            dict(error.exception)['password'][0], 
-            'This password is too short. It must contain at least 8 characters.'
-        )
-        self.assertEqual(
-            dict(error.exception)['first_name'][0], 
-            'This field cannot be less than 3 characters.'
-        )
-        self.assertEqual(
-            dict(error.exception)['last_name'][0], 
-            'This field cannot be less than 3 characters.'
-        )
-
-    def test_username_email_password_max_length_validation(self):
-        with self.assertRaises(ValidationError) as error:
-            User.objects.create_user(
-                username='abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijk',
-                email='abcdefghijabcdefghijabcdefghijabcdefghijabcdefghij@example.com',
-                password='abcdefghijabcdefghijabcdefghijabcdefghijabcdefghij'
-                'abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij'
-                'abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij'
-            )
-
-        self.assertEqual(
-            dict(error.exception)['username'][0], 
-            'Ensure this value has at most 50 characters (it has 51).'
-        )
-        self.assertEqual(
-            dict(error.exception)['email'][0], 
-            'Ensure this value has at most 50 characters (it has 62).'
-        )
-        self.assertEqual(
-            dict(error.exception)['password'][0], 
-            'Ensure this value has at most 128 characters (it has 170).'
-        )
-
-    def test_username_symbols_validation(self):
-        with self.assertRaises(ValidationError) as error:
-            User.objects.create_user(
-                username='test@',
-                email='test@example.com',
-                password='testing321'
-            )
-
-        self.assertEqual(
-            dict(error.exception)['username'][0], 
-            'Enter a valid username. This value may contain only letters,'
-            ' numbers, and @/./+/-/_ characters.'
-        )
-
-    def test_invalid_email_format(self):
-        with self.assertRaises(ValidationError) as error:
-            User.objects.create_user(
-                username='test',
-                email='test@example.c',
-                password='testing321'
-            )
-
-        self.assertEqual(dict(error.exception)['email'][0], 'Enter a valid email address.')
 
     def testadditional_valid_info_and_capitaliziation_of_firstname_lastname(self):
         user = User.objects.create_user(
@@ -165,40 +80,6 @@ class TestUserModel(TestCase):
 
         self.assertEqual(dict(error.exception)['last_name'][0], 'first_name is missing.')
 
-    def test_firstname_lastname_invalid_format(self):
-        with self.assertRaises(ValidationError) as error:
-            User.objects.create_user(
-                username='test',
-                email='test@example.com',
-                password='testing321',
-                first_name='test@',
-                last_name='test@'
-            )
-
-        self.assertEqual(
-            dict(error.exception)['last_name'][0],
-            'First name and last name can only contain letters.'
-        )
-        self.assertEqual(
-            dict(error.exception)['last_name'][0],
-            'First name and last name can only contain letters.'
-        )
-
-    def test_invalid_phone_number(self):
-        with self.assertRaises(ValidationError) as error:
-            User.objects.create_user(
-                username='test',
-                email='test@example.com',
-                password='testing321',
-                phone_number='95'
-            )
-
-        self.assertEqual(
-            dict(error.exception)['phone_number'][0],
-            'Phone number must be entered in the format: "+999999999".'
-            ' Up to 15 digits allowed.'
-        )
-
     def test_valid_superuser(self):
         user = User.objects.create_superuser(
             username='test',
@@ -241,26 +122,9 @@ class TestUserModel(TestCase):
             'Superuser must have is_superuser set to True.'
         )
 
-    def test_username_email_unique_constraint(self):
-        with self.assertRaises(ValidationError) as error:
-            User.objects.create_user(
-                username='test1',
-                email='test1@example.com',
-                password='testing321'
-            )
-        
-        self.assertEqual(
-            dict(error.exception)['username'][0],
-            'Custom user with this Username already exists.'
-        )
-        self.assertEqual(
-            dict(error.exception)['email'][0],
-            'Custom user with this Email already exists.'
-        )
-
 
 @override_settings(MEDIA_ROOT=TEST_MEDIA_ROOT)
-class TestProfileModel(TransactionTestCase):
+class TestProfileModel(TestCase):
 
     def setUp(self):
         self.user = User.objects.create_user(
@@ -309,3 +173,65 @@ class TestProfileModel(TransactionTestCase):
                 os.remove(TEST_MEDIA_ROOT / file)
 
         return super().tearDown()
+
+
+class TestFriendRequestModel(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='test',
+            email='test@example.com',
+            password='testing321'
+        )
+        self.user1 = User.objects.create_user(
+            username='test1',
+            email='test1@example.com',
+            password='testing321'
+        )
+
+    def test_valid_input(self):
+        FriendRequest.objects.create(
+            from_user=self.user,
+            to_user=self.user1
+        )
+        friend_request = FriendRequest.objects.filter(from_user=self.user).first()
+
+        self.assertIsNotNone(friend_request)
+        self.assertEqual(friend_request.to_user, self.user1)
+
+
+class TestFriendModel(TestCase):
+    
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='test',
+            email='test@example.com',
+            password='testing321'
+        )
+        self.user1 = User.objects.create_user(
+            username='test1',
+            email='test1@example.com',
+            password='testing321'
+        )
+    
+    def test_valid_input(self):
+        Friend.objects.create(
+            first_user=self.user,
+            second_user=self.user1
+        )
+
+        friends = Friend.objects.all()
+
+        self.assertEqual(len(friends), 1)
+        self.assertEqual(friends[0].first_user, self.user)
+        self.assertEqual(friends[0].second_user, self.user1)
+
+    def test_unique_constraint(self):
+        Friend.objects.create(
+            first_user=self.user,
+            second_user=self.user1
+        )
+        with self.assertRaises(IntegrityError):
+            Friend.objects.create(
+            first_user=self.user,
+            second_user=self.user1
+        )

@@ -28,40 +28,6 @@ class TestPostModel(TestCase):
         self.assertEqual(saved_post.dislikes_count, 0)
 
 
-    def test_duplicate(self):
-        post = Post.objects.create(
-            user=self.user,
-            body='test post body.',
-        )
-
-        with self.assertRaises(ValidationError) as context:
-            Post.objects.create(
-                user=self.user,
-                body='test post body.',
-                created_at=post.created_at
-            )
-
-        self.assertIn(
-            'Post with this User, Created at and Body already exists.',
-            str(context.exception)
-        )
-
-    def test_max_body_length_constraint(self):
-        with self.assertRaises(ValidationError) as context:
-            Post.objects.create(
-                user=self.user,
-                body='abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz'
-                'abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghij'
-                'klmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz'
-                'abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz',
-            )
-
-        self.assertIn(
-            'Ensure this value has at most 250 characters (it has 260).',
-            str(context.exception)
-        )
-
-
 class TestLikeModel(TestCase):
 
     def setUp(self):
@@ -78,15 +44,6 @@ class TestLikeModel(TestCase):
 
         self.assertTrue(isinstance(like, Like))
         self.assertTrue(like.is_like)
-
-    def test_like_unique_constraint(self):
-        with self.assertRaises(ValidationError) as context:
-            Like.objects.create(user=self.user, post=self.post, is_like=True)
-
-        self.assertIn(
-            'Like with this Post and User already exists.',
-            str(context.exception)
-        )
 
 
 class TestCommentModel(TestCase):
@@ -114,24 +71,3 @@ class TestCommentModel(TestCase):
         self.assertEqual(saved_comment.post, self.post)
         self.assertEqual(saved_comment.body, 'Test comment.')
 
-    def test_empty_body(self):
-        with self.assertRaises(ValidationError) as error:
-            Comment.objects.create(
-                user=self.user,
-                post=self.post,
-                body=''
-            )
-
-        self.assertEqual(dict(error.exception)['body'][0], 'This field cannot be blank.')
-
-    def test_max_body_length_constraint(self):
-        with self.assertRaises(ValidationError):
-            Comment.objects.create(
-                user=self.user,
-                post=self.post,
-                body='abcdefghijabcdefghijabcdefghijabcdefghijabcdefghij'
-                'abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij'
-                'abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij'
-                'abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij'
-                'abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij'
-            )

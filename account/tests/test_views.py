@@ -15,8 +15,8 @@ import io
 import os
 
 
-from account.serializers import ProfileSerializer
 from account.utils import generate_verification_token
+from account.models import FriendRequest, Friend
 from social_network.settings import BASE_DIR, TEST_MEDIA_ROOT
 
 User = get_user_model()
@@ -331,6 +331,7 @@ class TestProfileRetrieveUpdate(APITestCase):
 
         return super().tearDown()
 
+
 class TestRequestEmailVerification(APITestCase):
 
     def setUp(self):
@@ -494,10 +495,10 @@ class TestRequestPasswordReset(APITestCase):
             self.request_password_reset_url,
             data={'email': 'test1@example.com'}
         )
-        response_data = json.loads(response.content)
 
         self.assertEqual(response.status_code, 404)
-        self.assertEqual(response_data['detail'], 'Not found.')
+        self.assertEqual(response.data['detail'], 'Not found.')
+        
 
 """
 The ones with through_email at the end are as the name suggests, for requests that have been made
@@ -685,3 +686,234 @@ class TestResetPassword(APITestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data['error'], 'Passwords do not match.')
+
+
+class TestFriendRequestListCreateDestroy(APITestCase):
+
+    def setUp(self):
+        self.url = reverse('account:friend_request')
+        self.user = User.objects.create_user(
+            username='test',
+            email='test@example.com',
+            password='testing321'
+        )
+        self.user1 = User.objects.create_user(
+            username='test1',
+            email='test1@example.com',
+            password='testing321'
+        )
+        self.user2 = User.objects.create_user(
+            username='test2',
+            email='test2@example.com',
+            password='testing321'
+        )
+        self.friend_request = FriendRequest.objects.create(
+            from_user=self.user,
+            to_user=self.user1
+        )
+        self.friend_request = FriendRequest.objects.create(
+            from_user=self.user,
+            to_user=self.user2
+        )
+        self.user_access_token = AccessToken.for_user(self.user)
+        self.user1_access_token = AccessToken.for_user(self.user1)
+
+    def test_valid_get_request(self):
+        response = self.client.get(
+            self.url,
+            HTTP_AUTHORIZATION=f'Bearer {self.user_access_token}'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 2)
+        self.assertEqual(response.data[0]['from_user'], self.user.pk)
+        self.assertEqual(response.data[0]['to_user'], self.user1.pk)
+
+    def test_unauthenticated_request(self):
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.data['detail'], 'Authentication credentials were not provided.')
+
+    def test_valid_post_request(self):
+        response = self.client.post(
+            self.url,
+            data={'from_user': self.user1.pk, 'to_user': self.user2.pk},
+            HTTP_AUTHORIZATION=f'Bearer {self.user1_access_token}'
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data['from_user'], self.user1.pk)
+
+    def test_user_friends_themselves(self):
+        response = self.client.post(
+            self.url,
+            data={'from_user': self.user1.pk, 'to_user': self.user1.pk},
+            HTTP_AUTHORIZATION=f'Bearer {self.user1_access_token}'
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['error'][0], 'Users cannot friend themselves.')
+
+    def test_unique_friend_set(self):
+        response = self.client.post(
+            self.url,
+            data={'from_user': self.user.pk, 'to_user': self.user1.pk},
+            HTTP_AUTHORIZATION=f'Bearer {self.user_access_token}'
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['non_field_errors'][0], 'The fields from_user, to_user must make a unique set.')
+
+    def test_invalid_authentication_token(self):
+        response = self.client.post(
+            self.url,
+            data={'from_user': self.user1.pk, 'to_user': self.user.pk},
+            HTTP_AUTHORIZATION=f'Bearer {self.user_access_token}'
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(
+            response.data['error'],
+            'Token is not valid. It does not belong to the requestor.'
+        )
+
+    def test_valid_delete(self):
+        response = self.client.delete(
+            self.url,
+            data={'from_user': 1, 'to_user': 2},
+            HTTP_AUTHORIZATION=f'Bearer {self.user_access_token}'
+        )
+
+        self.assertEqual(response.status_code, 204)
+    
+    def test_invalid_delete_data(self):
+        response = self.client.delete(
+            self.url,
+            data={'from_user': 1, 'to_user': ''},
+            HTTP_AUTHORIZATION=f'Bearer {self.user_access_token}'
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['error'], 'Sender ID and receiver ID must be provided.')
+
+
+class TestFriendListCreateDestroy(APITestCase):
+
+    def setUp(self):
+        self.url = reverse('account:manage_friends')
+        self.user = User.objects.create_user(
+            username='test',
+            email='test@example.com',
+            password='testing321'
+        )
+        self.user1 = User.objects.create_user(
+            username='test1',
+            email='test1@example.com',
+            password='testing321'
+        )
+        self.user2 = User.objects.create_user(
+            username='test2',
+            email='test2@example.com',
+            password='testing321'
+        )
+        self.user_access_token = AccessToken.for_user(self.user)
+        self.user1_access_token = AccessToken.for_user(self.user1)
+        Friend.objects.create(
+            first_user = self.user,
+            second_user = self.user1
+        )
+        Friend.objects.create(
+            first_user = self.user,
+            second_user = self.user2
+        )
+
+    def test_valid_get(self):
+        response = self.client.get(
+            self.url,
+            HTTP_AUTHORIZATION = f'Bearer {self.user_access_token}'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 2)
+        self.assertEqual(response.data[0]['first_user'], self.user.pk)
+        self.assertEqual(response.data[1]['first_user'], self.user.pk)
+    
+    def test_unauthenticated_request(self):
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.data['detail'], 'Authentication credentials were not provided.')
+
+    def test_valid_post(self):
+        response = self.client.post(
+            self.url,
+            data={'first_user': self.user2.pk, 'second_user': self.user1.pk},
+            HTTP_AUTHORIZATION=f'Bearer {self.user1_access_token}'
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data['first_user'], self.user2.pk)
+
+    def test_bad_first_user_data(self):
+        response = self.client.post(
+            self.url,
+            data={'first_user': '', 'second_user': self.user1.pk},
+            HTTP_AUTHORIZATION=f'Bearer {self.user1_access_token}'
+        )
+
+        print()
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['first_user'][0], 'This field may not be null.')
+
+    def test_authenticate_token_does_not_belong_to_the_correct_party(self):
+        response = self.client.post(
+            self.url,
+            data={'first_user': self.user1.pk, 'second_user': self.user2.pk},
+            HTTP_AUTHORIZATION=f'Bearer {self.user_access_token}'
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(
+            response.data['error'][0],
+            'The request was not accepted by the proper party.'
+        )
+
+    def test_valid_delete(self):
+        response = self.client.delete(
+            self.url,
+            data={'user': self.user1.pk},
+            HTTP_AUTHORIZATION=f'Bearer {self.user_access_token}'
+        )
+
+        self.assertEqual(response.status_code, 204)
+
+    def test_nonexistent_friend_instance(self):
+        response = self.client.delete(
+            self.url,
+            data={'user': self.user2.pk},
+            HTTP_AUTHORIZATION=f'Bearer {self.user1_access_token}'
+        )
+        
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['error'][0], 'Current user is not a friend with the given user.')
+
+    def test_invalid_delete_key_format(self):
+        response = self.client.delete(
+            self.url,
+            data={'bad_data': 2},
+            HTTP_AUTHORIZATION=f'Bearer {self.user1_access_token}'
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['error'][0], 'Invalid data format.')
+
+    def test_invalid_delete_value_format(self):
+        response = self.client.delete(
+            self.url,
+            data={'user': 'bad_data'},
+            HTTP_AUTHORIZATION=f'Bearer {self.user1_access_token}'
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['error'][0], 'Invalid data format.')

@@ -16,10 +16,6 @@ class Post(models.Model):
     class Meta:
         unique_together = [['user', 'created_at', 'body']]
 
-    def save(self, *args, **kwargs):
-        self.full_clean()
-        super(Post, self).save(*args, **kwargs)
-
 
 class Like(models.Model):
     is_like = models.BooleanField(blank=False, null=False)
@@ -29,17 +25,9 @@ class Like(models.Model):
     class Meta:
         unique_together = [['post', 'user']]
 
-    def save(self, *args, **kwargs):
-        self.full_clean()
-        super(Like, self).save(*args, **kwargs)
-
 
 class Comment(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     post = models.ForeignKey(Post, on_delete=models.CASCADE)
     body = models.TextField(blank=False, validators=[MaxLengthValidator(250)])
     created_at = models.DateTimeField(auto_now_add=True, blank=False)
-
-    def save(self, *args, **kwargs):
-        self.full_clean()
-        super(Comment, self).save(*args, **kwargs)
