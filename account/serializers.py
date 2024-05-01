@@ -1,8 +1,8 @@
+from PIL import Image
+
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-
 from rest_framework import serializers
-from PIL import Image
 
 from account.models import Profile, FriendRequest, Friend
 
@@ -10,6 +10,7 @@ User = get_user_model()
 
 
 class UserSerializer(serializers.ModelSerializer):
+    profile = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -20,12 +21,19 @@ class UserSerializer(serializers.ModelSerializer):
             'email',
             'first_name',
             'last_name',
-            'phone_number'
+            'phone_number',
+            'profile'
         ]
         extra_kwargs = {
             'password': {'write_only': True},
+            'email': {'write_only': True},
+            'phone_number': {'write_only': True},
             'id': {'read_only': True}
         }
+
+    def get_profile(self, obj):
+        profile_instance = Profile.objects.filter(user=obj).first()
+        return profile_instance.image.path if profile_instance.image else None
 
     def validate(self, attrs):
         if attrs.get('first_name'):
@@ -75,7 +83,7 @@ class FriendRequestSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         if attrs.get('from_user') == attrs.get('to_user'):
-            raise serializers.ValidationError({'error':'Users cannot friend themselves.'})
+            raise serializers.ValidationError({'error':['Users cannot friend themselves.']})
         
         return super().validate(attrs)
 

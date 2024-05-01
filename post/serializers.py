@@ -1,5 +1,4 @@
 from django.contrib.auth import get_user_model
-
 from rest_framework import serializers
 from rest_framework.response import Response
 
@@ -28,8 +27,6 @@ class PostSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         representation['user'] = UserSerializer(instance.user).data
-        representation['user'].pop('phone_number')
-        representation['user'].pop('email')
         return representation
 
 
@@ -70,6 +67,4 @@ class CommentSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         representation['user'] = UserSerializer(instance.user).data
-        representation['user'].pop('phone_number')
-        representation['user'].pop('email')
         return representation

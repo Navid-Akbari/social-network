@@ -1,11 +1,11 @@
+import os
+from PIL import Image
+
 from django.core.exceptions import ValidationError
 from django.contrib.auth import password_validation
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
 from django.utils import timezone
-
-from PIL import Image
-import os
 
 from .validators import (
     USERNAME_VALIDATOR, 

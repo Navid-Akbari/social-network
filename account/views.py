@@ -1,3 +1,4 @@
+import jwt
 from django.conf import settings
 from django.contrib.auth.hashers import check_password
 from django.contrib.auth import get_user_model
@@ -5,8 +6,6 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import force_str
-
-import jwt
 from rest_framework import status
 from rest_framework.decorators import APIView
 from rest_framework.generics import (
@@ -42,7 +41,6 @@ User = get_user_model()
 
 
 class UserListCreate(ListCreateAPIView):
-    queryset = User.objects.all()
     serializer_class = UserSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['username', 'first_name', 'last_name']
@@ -51,13 +49,16 @@ class UserListCreate(ListCreateAPIView):
         if self.request.method == 'POST':
             return [AllowAny()]
         elif self.request.method == 'GET':
-            return [IsAdminUser()]
-    
+            return [IsAuthenticated()]
+
     def get_authenticators(self):
         if self.request.method == 'POST':
             return []
         if self.request.method == 'GET':
             return [JWTAuthentication()]
+
+    def get_queryset(self):
+        return User.objects.all().order_by('id')
 
 
 class UserRetrieveUpdateDestroy(RetrieveUpdateDestroyAPIView):
@@ -364,11 +365,11 @@ class FriendRequestListCreateDestroy(GenericAPIView):
 
         if request.user != sender:
             return Response(
-                {'error': 'Token is not valid. It does not belong to the requestor.'}, 
+                {'error': ['Token is not valid. It does not belong to the requestor.']}, 
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        serializer = self.get_serializer(data=request.data, many=True)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -382,7 +383,7 @@ class FriendRequestListCreateDestroy(GenericAPIView):
             to_user = int(to_user)
         except Exception:
             return Response(
-                {'error': 'Sender ID and receiver ID must be provided.'},
+                {'error': ['Sender ID and receiver ID must be provided.']},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -392,7 +393,7 @@ class FriendRequestListCreateDestroy(GenericAPIView):
             return Response(status=status.HTTP_204_NO_CONTENT)
         except FriendRequest.DoesNotExist:
             return Response(
-                {'error': 'Friend request not found.'},
+                {'error': ['Friend request not found.']},
                 status=status.HTTP_404_NOT_FOUND
             )
 
@@ -408,7 +409,14 @@ class FriendListCreateDestroy(GenericAPIView):
 
     def get(self, request, *args, **kwargs):
         queryset = self.get_queryset()
-        serializer = self.get_serializer(queryset, many=True)
+        friends = []
+        for instance in queryset:
+            if instance.first_user != request.user:
+                friends.append(instance.first_user)
+            elif instance.second_user != request.user:
+                friends.append(instance.second_user)
+        
+        serializer = UserSerializer(friends, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request, *args, **kwargs):

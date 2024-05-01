@@ -1,13 +1,13 @@
+import io
+import os
+from PIL import Image
+
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.auth.hashers import check_password
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
 from django.test import TestCase, override_settings
-
-from PIL import Image
-import io
-import os
 
 from social_network.settings import BASE_DIR, TEST_MEDIA_ROOT
 from account.models import Profile, FriendRequest, Friend
@@ -200,7 +200,7 @@ class TestFriendRequestModel(TestCase):
 
 
 class TestFriendModel(TestCase):
-    
+
     def setUp(self):
         self.user = User.objects.create_user(
             username='test',
@@ -212,7 +212,7 @@ class TestFriendModel(TestCase):
             email='test1@example.com',
             password='testing321'
         )
-    
+
     def test_valid_input(self):
         Friend.objects.create(
             first_user=self.user,

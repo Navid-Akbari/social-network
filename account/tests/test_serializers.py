@@ -1,11 +1,11 @@
+import io
+import os
+from PIL import Image
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import check_password
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
-
-from PIL import Image
-import io
-import os
 
 from account.serializers import (
     UserSerializer,
@@ -359,7 +359,7 @@ class TestFriendRequestSerializer(TestCase):
 
 
 class TestFriendSerializer(TestCase):
-    
+
     def setUp(self):
         self.user = User.objects.create_user(
             username='test',

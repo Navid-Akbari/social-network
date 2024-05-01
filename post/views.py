@@ -1,5 +1,4 @@
 from django.contrib.auth import get_user_model
-
 from rest_framework import status
 from rest_framework.exceptions import NotFound
 from rest_framework.filters import SearchFilter

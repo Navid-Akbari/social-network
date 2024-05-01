@@ -1,6 +1,5 @@
 from django.test import SimpleTestCase
 from django.urls import reverse, resolve
-
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -19,15 +18,15 @@ class TestUrls(SimpleTestCase):
         url = reverse('account:token_refresh')
         self.assertEqual(resolve(url).func.view_class, TokenRefreshView)
 
-    def test_list_create_url_is_resolved(self):
+    def test_user_list_create_url_is_resolved(self):
         url = reverse('account:users')
         self.assertEqual(resolve(url).func.view_class, views.UserListCreate)
 
-    def test_update_delete_url_is_resolved(self):
+    def test_user_update_delete_url_is_resolved(self):
         url = reverse('account:users_detail', kwargs={'pk': 1})
         self.assertEqual(resolve(url).func.view_class, views.UserRetrieveUpdateDestroy)
 
-    def test_get_with_token_url_is_resolved(self):
+    def test_user_get_with_token_url_is_resolved(self):
         url = reverse('account:users_detail_token')
         self.assertEqual(resolve(url).func.view_class, views.UserRetrieveWithToken)
 

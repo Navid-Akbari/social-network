@@ -1,3 +1,8 @@
+import io
+import os
+from datetime import timedelta
+from PIL import Image
+
 from django.contrib.auth.hashers import check_password
 from django.contrib.auth import get_user_model
 from django.conf import settings
@@ -7,12 +12,9 @@ from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 from django.utils import timezone
 
-from datetime import timedelta
 from rest_framework_simplejwt.tokens import AccessToken
 from rest_framework.test import APITestCase, override_settings
-from PIL import Image
-import io
-import os
+
 
 
 from account.utils import generate_verification_token
@@ -57,7 +59,7 @@ class TestUserListCreate(APITestCase):
         user = User.objects.get(username='test2')
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data['username'], 'test2')
-        self.assertEqual(response.data['email'], 'test2@example.com')
+        self.assertNotIn('email', response.data)
         self.assertTrue(check_password('testing321', user.password))
 
     def test_empty_username_email_password(self):
@@ -104,18 +106,6 @@ class TestUserListCreate(APITestCase):
         self.assertEqual(
             response.data['detail'],
             'Authentication credentials were not provided.'
-        )
-
-    def test_unauthorized_get_request(self):
-        response = self.client.get(
-            self.list_create_url,
-            HTTP_AUTHORIZATION=f'Bearer {self.test_user_access_token}',
-        )
-
-        self.assertEqual(response.status_code, 403)
-        self.assertEqual(
-            response.data['detail'],
-            'You do not have permission to perform this action.'
         )
 
 
@@ -177,7 +167,6 @@ class TestUserRetrieveUpdateDestroy(APITestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['username'], 'updatedtest')
-        self.assertEqual(response.data['email'], 'updatedtest@example.com')
         self.assertEqual(response.data['id'], 1)
 
     def test_empty_username_email(self):
@@ -742,6 +731,7 @@ class TestFriendRequestListCreateDestroy(APITestCase):
             HTTP_AUTHORIZATION=f'Bearer {self.user1_access_token}'
         )
 
+        print(response.data)
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data['from_user'], self.user1.pk)
 
@@ -774,7 +764,7 @@ class TestFriendRequestListCreateDestroy(APITestCase):
 
         self.assertEqual(response.status_code, 403)
         self.assertEqual(
-            response.data['error'],
+            response.data['error'][0],
             'Token is not valid. It does not belong to the requestor.'
         )
 
@@ -795,7 +785,7 @@ class TestFriendRequestListCreateDestroy(APITestCase):
         )
 
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.data['error'], 'Sender ID and receiver ID must be provided.')
+        self.assertEqual(response.data['error'][0], 'Sender ID and receiver ID must be provided.')
 
 
 class TestFriendListCreateDestroy(APITestCase):
@@ -836,9 +826,7 @@ class TestFriendListCreateDestroy(APITestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data), 2)
-        self.assertEqual(response.data[0]['first_user'], self.user.pk)
-        self.assertEqual(response.data[1]['first_user'], self.user.pk)
-    
+
     def test_unauthenticated_request(self):
         response = self.client.get(self.url)
 
@@ -894,7 +882,7 @@ class TestFriendListCreateDestroy(APITestCase):
             data={'user': self.user2.pk},
             HTTP_AUTHORIZATION=f'Bearer {self.user1_access_token}'
         )
-        
+
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data['error'][0], 'Current user is not a friend with the given user.')
 
